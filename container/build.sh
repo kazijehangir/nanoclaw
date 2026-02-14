@@ -13,7 +13,8 @@ echo "Building NanoClaw agent container image..."
 echo "Image: ${IMAGE_NAME}:${TAG}"
 
 # Build with Docker
-docker build -t "${IMAGE_NAME}:${TAG}" .
+# Pass extra args via DOCKER_BUILD_ARGS (e.g., DOCKER_BUILD_ARGS="--no-cache")
+docker build $DOCKER_BUILD_ARGS -t "${IMAGE_NAME}:${TAG}" .
 
 echo ""
 echo "Build complete!"
