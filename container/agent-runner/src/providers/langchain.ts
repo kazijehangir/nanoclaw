@@ -184,6 +184,7 @@ export class LangChainProvider implements LLMProvider {
 
                 const result = await agent.invoke(
                     { messages: [{ role: 'user', content: text }] },
+                    { recursionLimit: 100 },
                 );
 
                 // Extract the final assistant message
