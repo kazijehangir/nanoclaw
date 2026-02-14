@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
@@ -8,9 +9,11 @@ import {
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
+  STORE_DIR,
   TRIGGER_PATTERN,
 } from './config.js';
 import { WhatsAppChannel } from './channels/whatsapp.js';
+import { DiscordChannel } from './channels/discord.js';
 import {
   ContainerOutput,
   runContainerAgent,
@@ -36,8 +39,9 @@ import { GroupQueue } from './group-queue.js';
 import { startIpcWatcher } from './ipc.js';
 import { formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
-import { NewMessage, RegisteredGroup } from './types.js';
+import { NewMessage, RegisteredGroup, Channel } from './types.js';
 import { logger } from './logger.js';
+import { updateChatName } from './db.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -48,8 +52,12 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
 let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
-let whatsapp: WhatsAppChannel;
+const channels: Channel[] = [];
 const queue = new GroupQueue();
+
+function getChannelForJid(jid: string): Channel | undefined {
+  return channels.find((c) => c.ownsJid(jid));
+}
 
 function loadState(): void {
   lastTimestamp = getRouterState('last_timestamp') || '';
@@ -123,6 +131,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
 
   const isMainGroup = group.folder === MAIN_GROUP_FOLDER;
 
+  // Check if any message is from an admin user (for sender-based security)
+  const adminUsers = group.adminUsers || [];
+  let hasAdminMessage = false;
+
   const sinceTimestamp = lastAgentTimestamp[chatJid] || '';
   const missedMessages = getMessagesSince(
     chatJid,
@@ -131,6 +143,11 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   );
 
   if (missedMessages.length === 0) return true;
+
+  // Check if any message is from an admin user
+  if (adminUsers.length > 0) {
+    hasAdminMessage = missedMessages.some((m) => adminUsers.includes(m.sender));
+  }
 
   // For non-main groups, check if trigger is required and present
   if (!isMainGroup && group.requiresTrigger !== false) {
@@ -165,7 +182,13 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     }, IDLE_TIMEOUT);
   };
 
-  await whatsapp.setTyping(chatJid, true);
+  const channel = getChannelForJid(chatJid);
+  if (!channel) {
+    logger.error({ chatJid }, 'No channel found for JID');
+    return false;
+  }
+
+  await channel.setTyping?.(chatJid, true);
   let hadError = false;
   let outputSentToUser = false;
 
@@ -177,7 +200,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
       const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
       if (text) {
-        await whatsapp.sendMessage(chatJid, `${ASSISTANT_NAME}: ${text}`);
+        const prefix = channel.prefixAssistantName !== false ? `${ASSISTANT_NAME}: ` : '';
+        await channel.sendMessage(chatJid, `${prefix}${text}`);
         outputSentToUser = true;
       }
       // Only reset idle timer on actual results, not session-update markers (result: null)
@@ -187,9 +211,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     if (result.status === 'error') {
       hadError = true;
     }
-  });
+  }, hasAdminMessage);
 
-  await whatsapp.setTyping(chatJid, false);
+  await channel.setTyping?.(chatJid, false);
   if (idleTimer) clearTimeout(idleTimer);
 
   if (output === 'error' || hadError) {
@@ -214,8 +238,9 @@ async function runAgent(
   prompt: string,
   chatJid: string,
   onOutput?: (output: ContainerOutput) => Promise<void>,
+  hasAdminMessage?: boolean,
 ): Promise<'success' | 'error'> {
-  const isMain = group.folder === MAIN_GROUP_FOLDER;
+  const isMain = group.folder === MAIN_GROUP_FOLDER || hasAdminMessage === true;
   const sessionId = sessions[group.folder];
 
   // Update tasks snapshot for container to read (filtered by group)
@@ -463,21 +488,63 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     await queue.shutdown(10000);
-    await whatsapp.disconnect();
+    for (const channel of channels) {
+      await channel.disconnect();
+    }
     process.exit(0);
   };
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  // Create WhatsApp channel
-  whatsapp = new WhatsAppChannel({
-    onMessage: (chatJid, msg) => storeMessage(msg),
-    onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
-    registeredGroups: () => registeredGroups,
-  });
+  // Initialize channels based on environment variables
+  const discordToken = process.env.DISCORD_BOT_TOKEN;
+  const hasWhatsAppAuth = fs.existsSync(path.join(STORE_DIR, 'auth'));
 
-  // Connect — resolves when first connected
-  await whatsapp.connect();
+  if (discordToken) {
+    logger.info('Initializing Discord channel');
+    const discord = new DiscordChannel({
+      token: discordToken,
+      onMessage: (chatJid, msg) => {
+        storeMessage(msg);
+        // Auto-register Discord DMs so all users get responses
+        if (chatJid.endsWith('@discord.dm') && !registeredGroups[chatJid]) {
+          const folderName = `discord-dm-${chatJid.split('@')[0]}`;
+          registerGroup(chatJid, {
+            name: `Discord DM: ${msg.sender_name}`,
+            folder: folderName,
+            trigger: ASSISTANT_NAME,
+            added_at: new Date().toISOString(),
+            requiresTrigger: false,
+            // No adminUsers — non-admin access by default
+          });
+          logger.info({ chatJid, user: msg.sender_name }, 'Auto-registered Discord DM');
+        }
+      },
+      onChatMetadata: (chatJid, timestamp, name) => {
+        storeChatMetadata(chatJid, timestamp);
+        if (name) updateChatName(chatJid, name);
+      },
+      registeredGroups: () => registeredGroups,
+    });
+    channels.push(discord);
+    await discord.connect();
+  }
+
+  if (hasWhatsAppAuth) {
+    logger.info('Initializing WhatsApp channel');
+    const whatsapp = new WhatsAppChannel({
+      onMessage: (chatJid, msg) => storeMessage(msg),
+      onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
+      registeredGroups: () => registeredGroups,
+    });
+    channels.push(whatsapp);
+    await whatsapp.connect();
+  }
+
+  if (channels.length === 0) {
+    logger.error('No channels configured. Set DISCORD_BOT_TOKEN or run WhatsApp auth.');
+    process.exit(1);
+  }
 
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
@@ -486,15 +553,34 @@ async function main(): Promise<void> {
     queue,
     onProcess: (groupJid, proc, containerName, groupFolder) => queue.registerProcess(groupJid, proc, containerName, groupFolder),
     sendMessage: async (jid, rawText) => {
-      const text = formatOutbound(whatsapp, rawText);
-      if (text) await whatsapp.sendMessage(jid, text);
+      const channel = getChannelForJid(jid);
+      if (!channel) {
+        logger.error({ jid }, 'No channel found for JID in scheduler');
+        return;
+      }
+      const text = formatOutbound(channel, rawText);
+      if (text) await channel.sendMessage(jid, text);
     },
   });
   startIpcWatcher({
-    sendMessage: (jid, text) => whatsapp.sendMessage(jid, text),
+    sendMessage: (jid, text) => {
+      const channel = getChannelForJid(jid);
+      if (!channel) {
+        logger.error({ jid }, 'No channel found for JID in IPC');
+        return Promise.resolve();
+      }
+      return channel.sendMessage(jid, text);
+    },
     registeredGroups: () => registeredGroups,
     registerGroup,
-    syncGroupMetadata: (force) => whatsapp.syncGroupMetadata(force),
+    syncGroupMetadata: (force) => {
+      // Only WhatsApp has syncGroupMetadata
+      const whatsapp = channels.find((c) => c.name === 'whatsapp') as WhatsAppChannel | undefined;
+      if (whatsapp?.syncGroupMetadata) {
+        return whatsapp.syncGroupMetadata(force);
+      }
+      return Promise.resolve();
+    },
     getAvailableGroups,
     writeGroupsSnapshot: (gf, im, ag, rj) => writeGroupsSnapshot(gf, im, ag, rj),
   });

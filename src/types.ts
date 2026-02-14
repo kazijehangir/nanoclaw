@@ -39,6 +39,7 @@ export interface RegisteredGroup {
   added_at: string;
   containerConfig?: ContainerConfig;
   requiresTrigger?: boolean; // Default: true for groups, false for solo chats
+  adminUsers?: string[]; // Discord/platform user IDs that should get admin privileges in this channel
 }
 
 export interface NewMessage {
