@@ -1,10 +1,10 @@
 # NanoClaw
 
-Personal Claude assistant. See [README.md](README.md) for philosophy and setup. See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for architecture decisions.
+AI agent assistant with multi-LLM support. See [README.md](README.md) for philosophy and setup. See [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) for architecture decisions.
 
 ## Quick Context
 
-Single Node.js process that connects to WhatsApp, routes messages to Claude Agent SDK running in Docker containers. Each group has isolated filesystem and memory.
+Single Node.js process that connects to WhatsApp/Discord, routes messages to an LLM provider running in Docker containers. Each group has isolated filesystem and memory. Supports Claude (default), Gemini, OpenAI, and local models via LMStudio/Ollama.
 
 ## Key Files
 
@@ -20,6 +20,11 @@ Single Node.js process that connects to WhatsApp, routes messages to Claude Agen
 | `src/db.ts` | SQLite operations |
 | `groups/{name}/CLAUDE.md` | Per-group memory (isolated) |
 | `container/skills/agent-browser.md` | Browser automation tool (available to all agents via Bash) |
+| `container/agent-runner/src/providers/types.ts` | LLMProvider interface and AgentMessage types |
+| `container/agent-runner/src/providers/claude.ts` | Claude Agent SDK provider |
+| `container/agent-runner/src/providers/langchain.ts` | LangChain provider (Gemini, OpenAI, local models) |
+| `container/agent-runner/src/providers/tools.ts` | Agent tools for LangChain provider |
+| `container/agent-runner/src/ipc-utils.ts` | Shared IPC utilities |
 
 ## Skills
 
@@ -55,3 +60,28 @@ docker builder prune -af
 ```
 
 Always verify after rebuild: `docker run -i --rm --entrypoint wc nanoclaw-agent:latest -l /app/src/index.ts`
+
+## LLM Provider Configuration
+
+Set these in `.env` to switch providers:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `claude` | `claude` or `langchain` |
+| `LLM_MODEL` | (provider default) | Model name (e.g., `gemini-2.0-flash`, `gpt-4o`) |
+| `LLM_API_KEY` | — | API key for the selected model |
+| `LLM_BASE_URL` | — | Base URL for OpenAI-compatible endpoints (LMStudio, Ollama) |
+| `GOOGLE_API_KEY` | — | Alternative to `LLM_API_KEY` for Gemini |
+
+Examples:
+```bash
+# Gemini
+LLM_PROVIDER=langchain
+LLM_MODEL=gemini-2.0-flash
+LLM_API_KEY=your-google-api-key
+
+# LMStudio (local)
+LLM_PROVIDER=langchain
+LLM_MODEL=your-model-name
+LLM_BASE_URL=http://host.docker.internal:1234/v1
+```
