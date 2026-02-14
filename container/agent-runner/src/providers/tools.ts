@@ -334,6 +334,46 @@ export function createListTasksTool(
     });
 }
 
+export function createUpdateMemoryTool(
+    cwd: string,
+    isMain: boolean,
+    activeUser?: string,
+): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+        name: 'update_memory',
+        description: 'Update persistent memory by appending to CLAUDE.md. Use this to remember user preferences, important facts, or project context that should persist across sessions.',
+        schema: z.object({
+            content: z.string().describe('The content to remember (e.g., "User likes concise responses")'),
+            category: z.string().optional().describe('Optional category tag (e.g., "preference", "fact")'),
+        }),
+        func: async ({ content, category }) => {
+            let targetFile = `${cwd}/CLAUDE.md`; // Default to group memory
+
+            // If we have an active user, write to their isolated memory
+            if (activeUser) {
+                // Sanitize user ID for filesystem safety
+                const safeUser = activeUser.replace(/[^a-zA-Z0-9-]/g, '_');
+                const userDir = `${cwd}/users/${safeUser}`;
+                if (!fs.existsSync(userDir)) {
+                    fs.mkdirSync(userDir, { recursive: true });
+                }
+                targetFile = `${userDir}/CLAUDE.md`;
+            }
+
+            const timestamp = new Date().toISOString().split('T')[0];
+            const categoryTag = category ? `[${category.toUpperCase()}] ` : '';
+            const entry = `\n- ${categoryTag}${content} (Added: ${timestamp})`;
+
+            try {
+                fs.appendFileSync(targetFile, entry);
+                return `Memory updated in ${targetFile}`;
+            } catch (err) {
+                return `Failed to update memory: ${err instanceof Error ? err.message : String(err)}`;
+            }
+        },
+    });
+}
+
 export function createTaskActionTool(
     action: 'pause_task' | 'resume_task' | 'cancel_task',
     description: string,
@@ -383,6 +423,7 @@ export function buildAllTools(
     chatJid: string,
     groupFolder: string,
     isMain: boolean,
+    activeUser?: string,
 ): DynamicStructuredTool[] {
     return [
         // Core agent tools
@@ -402,5 +443,6 @@ export function buildAllTools(
         createTaskActionTool('resume_task', 'Resume a paused task.', groupFolder, isMain),
         createTaskActionTool('cancel_task', 'Cancel and delete a scheduled task.', groupFolder, isMain),
         createRegisterGroupTool(isMain),
+        createUpdateMemoryTool(cwd, isMain, activeUser),
     ];
 }

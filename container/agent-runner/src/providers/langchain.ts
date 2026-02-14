@@ -91,6 +91,7 @@ export class LangChainProvider implements LLMProvider {
             input.chatJid,
             input.groupFolder,
             input.isMain,
+            input.activeUser,
         );
 
         // Load system prompt
@@ -113,11 +114,27 @@ export class LangChainProvider implements LLMProvider {
             systemPromptParts.push(input.systemPrompt);
         }
 
+        // Load user-specific memory
+        if (input.activeUser) {
+            const safeUser = input.activeUser.replace(/[^a-zA-Z0-9-]/g, '_');
+            const userMemoryPath = `${input.cwd}/users/${safeUser}/CLAUDE.md`;
+            if (fs.existsSync(userMemoryPath)) {
+                systemPromptParts.push(`USER MEMORY (${input.activeUser}):\n${fs.readFileSync(userMemoryPath, 'utf-8')}`);
+            }
+        }
+
         // Base instructions for the agent
         systemPromptParts.unshift(
             'You are a helpful AI assistant. You have access to tools for file operations, ' +
-            'running bash commands, fetching web content, and managing tasks. ' +
-            'Use the tools as needed to accomplish the user\'s request. ' +
+            'running bash commands, fetching web content, and managing tasks.\n\n' +
+            'CRITICAL TOOL USAGE RULES:\n' +
+            '1. REMINDERS & CHORES: You MUST use the `schedule_task` tool to set reminders or schedule jobs. ' +
+            'Do NOT just saying "I\'ll remember to do that" — if you don\'t call `schedule_task`, nothing will happen.\n' +
+            '2. CHECKING TASKS: To see what is scheduled, use `list_tasks`.\n' +
+            '3. PERSISTENT MEMORY: To remember information permanently (user preferences, facts, etc.), ' +
+            'you MUST use the `update_memory` tool. Do NOT write to temporary files like `/tmp/` ' +
+            'or try to edit files manually for memory.\n' +
+            '4. Use other tools (bash, read_file, etc.) as needed to accomplish the user\'s request.\n' +
             'When you\'re done, provide a clear, concise response to the user.',
         );
 

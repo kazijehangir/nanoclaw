@@ -69,6 +69,7 @@ export interface AgentInput {
   groupFolder: string;
   chatJid: string;
   isMain: boolean;
+  activeUser?: string;
 }
 
 // ---------------------------------------------------------------------------

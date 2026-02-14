@@ -148,8 +148,8 @@ The **recommended** approach is iptables rules blocking private IP ranges, with 
 | **Session resume** | Not supported for LangChain provider. Conversations start fresh per container invocation. |
 | **Tool quality** | Local models with weak function-calling may not use tools reliably. Gemini and GPT-4o work well. |
 | **MCP servers** | Only the Claude provider connects to MCP servers. LangChain uses built-in tools only. |
-| **Reminders/scheduling** | The LangChain provider has `schedule_task` and `list_tasks` tools available, but the system prompt is too generic — models often hallucinate "setting a reminder" instead of actually calling the tool. The system prompt needs explicit instructions about available tools and when to use them (especially `schedule_task` for reminders and `list_tasks` to check existing tasks). |
-| **Persistent memory** | Claude Code natively manages `CLAUDE.md` as persistent memory (reading/updating it across sessions). The LangChain provider only reads `CLAUDE.md` as a system prompt but has no mechanism to update it. Models resort to writing to `/tmp/` which is ephemeral. Needs either: (a) a dedicated `update_memory` tool that appends to `CLAUDE.md`, or (b) instructions in the system prompt to use `edit_file` on `CLAUDE.md` for persistent notes. |
+| **Reminders/scheduling** | ~The LangChain provider has `schedule_task` and `list_tasks` tools available, but the system prompt is too generic.~ **Addressed:** System prompt now includes explicit instructions to use `schedule_task` for reminders and `list_tasks` to check them. |
+| **Persistent memory** | ~Claude Code natively manages `CLAUDE.md` as persistent memory.~ **Addressed:** Added dedicated `update_memory` tool with **multi-user isolation** (writes to `users/{user}/CLAUDE.md`). System prompt automatically loads the active user's memory. |
 
 ## Configuration Reference
 
