@@ -8,7 +8,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { query, HookCallback, PreCompactHookInput, PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk';
+import { query, HookCallback, HookInput, PreCompactHookInput, PreToolUseHookInput } from '@anthropic-ai/claude-agent-sdk';
 import type { LLMProvider, AgentInput, AgentMessage, UserTurn } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -134,7 +134,7 @@ function formatTranscriptMarkdown(messages: ParsedMessage[], title?: string | nu
 const SECRET_ENV_VARS = ['ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN'];
 
 function createPreCompactHook(): HookCallback {
-    return async (input, _toolUseId, _context) => {
+    return async (input: HookInput, _toolUseId: string | undefined, _context: { signal: AbortSignal }) => {
         const preCompact = input as PreCompactHookInput;
         const transcriptPath = preCompact.transcript_path;
         const sessionId = preCompact.session_id;
@@ -176,7 +176,7 @@ function createPreCompactHook(): HookCallback {
 }
 
 function createSanitizeBashHook(): HookCallback {
-    return async (input, _toolUseId, _context) => {
+    return async (input: HookInput, _toolUseId: string | undefined, _context: { signal: AbortSignal }) => {
         const preInput = input as PreToolUseHookInput;
         const command = (preInput.tool_input as { command?: string })?.command;
         if (!command) return {};
