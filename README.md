@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  My personal Claude assistant that runs securely in containers. Lightweight and built to be understood and customized for your own needs.
+  AI agent assistant that runs securely in containers. Supports Claude, Gemini, OpenAI, and local models. Lightweight and built to be understood and customized for your own needs.
 </p>
 
 <p align="center">
@@ -43,17 +43,18 @@ Then run `/setup`. Claude Code handles everything: dependencies, authentication,
 
 **Skills over features.** Contributors shouldn't add features (e.g. support for Telegram) to the codebase. Instead, they contribute [claude code skills](https://code.claude.com/docs/en/skills) like `/add-telegram` that transform your fork. You end up with clean code that does exactly what you need.
 
-**Best harness, best model.** This runs on Claude Agent SDK, which means you're running Claude Code directly. The harness matters. A bad harness makes even smart models seem dumb, a good harness gives them superpowers. Claude Code is (IMO) the best harness available.
+**Best harness, best model.** Defaults to Claude Agent SDK (Claude Code), with a pluggable LLM provider system supporting Gemini, OpenAI, and local models. The harness matters — a bad harness makes even smart models seem dumb, a good harness gives them superpowers.
 
 ## What It Supports
 
-- **WhatsApp I/O** - Message Claude from your phone
+- **WhatsApp I/O** - Message your agent from your phone
+- **Multi-LLM support** - Claude (default), Gemini, OpenAI, or local models via LMStudio/Ollama
 - **Isolated group context** - Each group has its own `CLAUDE.md` memory, isolated filesystem, and runs in its own container sandbox with only that filesystem mounted
 - **Main channel** - Your private channel (self-chat) for admin control; every other group is completely isolated
-- **Scheduled tasks** - Recurring jobs that run Claude and can message you back
+- **Scheduled tasks** - Recurring jobs that run your agent and can message you back
 - **Web access** - Search and fetch content
 - **Container isolation** - Agents sandboxed in Docker containers (macOS/Linux)
-- **Agent Swarms** - Spin up teams of specialized agents that collaborate on complex tasks (first personal AI assistant to support this)
+- **Agent Swarms** - Spin up teams of specialized agents that collaborate on complex tasks (Claude provider only)
 - **Optional integrations** - Add Gmail (`/add-gmail`) and more via skills
 
 ## Usage
@@ -113,16 +114,68 @@ Skills we'd love to see:
 
 - macOS or Linux
 - Node.js 20+
-- [Claude Code](https://claude.ai/download)
+- [Claude Code](https://claude.ai/download) (for default Claude provider)
 - [Docker](https://docker.com/products/docker-desktop)
+
+## LLM Provider Configuration
+
+NanoClaw defaults to Claude, but you can switch to other models by setting environment variables in `.env`:
+
+### Claude (Default)
+
+No additional configuration needed. Uses `CLAUDE_CODE_OAUTH_TOKEN` from `.env`.
+
+### Gemini
+
+```bash
+LLM_PROVIDER=langchain
+LLM_MODEL=gemini-2.0-flash
+LLM_API_KEY=your-google-api-key
+```
+
+### OpenAI
+
+```bash
+LLM_PROVIDER=langchain
+LLM_MODEL=gpt-4o
+LLM_API_KEY=your-openai-api-key
+```
+
+### Local Models (LMStudio / Ollama)
+
+```bash
+LLM_PROVIDER=langchain
+LLM_MODEL=your-model-name
+LLM_BASE_URL=http://host.docker.internal:1234/v1
+```
+
+> **Note:** `host.docker.internal` lets the Docker container reach your host machine where LMStudio/Ollama runs. After changing providers, rebuild the container: `cd container && ./build.sh`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LLM_PROVIDER` | `claude` | `claude` or `langchain` |
+| `LLM_MODEL` | _(provider default)_ | Model name |
+| `LLM_API_KEY` | — | API key for the model provider |
+| `LLM_BASE_URL` | — | Base URL for OpenAI-compatible endpoints |
+| `GOOGLE_API_KEY` | — | Alternative to `LLM_API_KEY` for Gemini |
+
+**Provider feature comparison:**
+
+| Feature | Claude | LangChain (Gemini/OpenAI/Local) |
+|---------|--------|----------------------------------|
+| Tool use (bash, files, web) | ✅ | ✅ |
+| IPC tools (messaging, scheduling) | ✅ | ✅ |
+| Session resume | ✅ | ❌ (planned) |
+| Agent Swarms | ✅ | ❌ |
+| MCP server support | ✅ | ❌ |
 
 ## Architecture
 
 ```
-WhatsApp (baileys) --> SQLite --> Polling loop --> Container (Claude Agent SDK) --> Response
+WhatsApp/Discord --> SQLite --> Polling loop --> Container (LLM Provider) --> Response
 ```
 
-Single Node.js process. Agents execute in isolated Linux containers with mounted directories. Per-group message queue with concurrency control. IPC via filesystem.
+Single Node.js process. Agents execute in isolated Linux containers with mounted directories. Per-group message queue with concurrency control. IPC via filesystem. The LLM provider is selected at container startup based on the `LLM_PROVIDER` environment variable.
 
 Key files:
 - `src/index.ts` - Orchestrator: state, message loop, agent invocation
@@ -133,6 +186,7 @@ Key files:
 - `src/container-runner.ts` - Spawns streaming agent containers
 - `src/task-scheduler.ts` - Runs scheduled tasks
 - `src/db.ts` - SQLite operations (messages, groups, sessions, state)
+- `container/agent-runner/src/providers/` - LLM provider implementations
 - `groups/*/CLAUDE.md` - Per-group memory
 
 ## FAQ
@@ -164,6 +218,10 @@ Ask Claude Code. "Why isn't the scheduler running?" "What's in the recent logs?"
 **Why isn't the setup working for me?**
 
 I don't know. Run `claude`, then run `/debug`. If claude finds an issue that is likely affecting other users, open a PR to modify the setup SKILL.md.
+
+**Can I use a different AI model?**
+
+Yes. Set `LLM_PROVIDER=langchain` in your `.env` along with `LLM_MODEL` and `LLM_API_KEY`. Supports Gemini, OpenAI, and local models via LMStudio/Ollama. See [LLM Provider Configuration](#llm-provider-configuration) for details. Note that some features (Agent Swarms, session resume) are Claude-only.
 
 **What changes will be accepted into the codebase?**
 

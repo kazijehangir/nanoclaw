@@ -53,3 +53,9 @@ export const TRIGGER_PATTERN = new RegExp(
 // Uses system timezone by default
 export const TIMEZONE =
   process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+// LLM Provider configuration
+// Set LLM_PROVIDER=langchain to use non-Claude models (Gemini, LMStudio, etc.)
+export const LLM_PROVIDER = process.env.LLM_PROVIDER || 'claude';
+export const LLM_MODEL = process.env.LLM_MODEL || '';
+export const LLM_BASE_URL = process.env.LLM_BASE_URL || '';
