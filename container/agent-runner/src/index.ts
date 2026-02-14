@@ -19,7 +19,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import type { LLMProvider, AgentMessage, UserTurn } from './providers/types.js';
-import { ClaudeProvider } from './providers/claude.js';
 
 interface ContainerInput {
   prompt: string;
@@ -174,11 +173,13 @@ async function createProvider(mcpServerPath: string): Promise<LLMProvider> {
   const providerName = (process.env.LLM_PROVIDER || 'claude').toLowerCase();
 
   switch (providerName) {
-    case 'claude':
+    case 'claude': {
+      // Lazy import to avoid requiring Claude SDK when using langchain
+      const { ClaudeProvider } = await import('./providers/claude.js');
       return new ClaudeProvider(mcpServerPath);
+    }
     case 'langchain': {
       // Lazy import to avoid requiring langchain deps when using claude
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { LangChainProvider } = await import('./providers/langchain.js');
       return new LangChainProvider();
     }
