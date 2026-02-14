@@ -188,7 +188,16 @@ function readSecrets(): Record<string, string> {
   const envFile = path.join(process.cwd(), '.env');
   if (!fs.existsSync(envFile)) return {};
 
-  const allowedVars = ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'];
+  const allowedVars = [
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'ANTHROPIC_API_KEY',
+    // LLM provider configuration
+    'LLM_PROVIDER',
+    'LLM_API_KEY',
+    'LLM_BASE_URL',
+    'LLM_MODEL',
+    'GOOGLE_API_KEY',
+  ];
   const secrets: Record<string, string> = {};
   const content = fs.readFileSync(envFile, 'utf-8');
 
@@ -214,6 +223,11 @@ function readSecrets(): Record<string, string> {
 
 function buildContainerArgs(mounts: VolumeMount[], containerName: string): string[] {
   const args: string[] = ['run', '-i', '--rm', '--name', containerName];
+
+  // Allow container to reach host services (LMStudio, Ollama)
+  // On macOS Docker Desktop, host.docker.internal is already available,
+  // but this flag ensures it works on Linux Docker too.
+  args.push('--add-host=host.docker.internal:host-gateway');
 
   // Docker: -v with :ro suffix for readonly
   for (const mount of mounts) {
