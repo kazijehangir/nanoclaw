@@ -337,7 +337,7 @@ export function createListTasksTool(
 export function createUpdateMemoryTool(
     cwd: string,
     isMain: boolean,
-    activeUser?: string,
+    onMemoryUpdate?: (content: string, category?: string) => Promise<string>,
 ): DynamicStructuredTool {
     return new DynamicStructuredTool({
         name: 'update_memory',
@@ -347,19 +347,14 @@ export function createUpdateMemoryTool(
             category: z.string().optional().describe('Optional category tag (e.g., "preference", "fact")'),
         }),
         func: async ({ content, category }) => {
-            let targetFile = `${cwd}/CLAUDE.md`; // Default to group memory
-
-            // If we have an active user, write to their isolated memory
-            if (activeUser) {
-                // Sanitize user ID for filesystem safety
-                const safeUser = activeUser.replace(/[^a-zA-Z0-9-]/g, '_');
-                const userDir = `${cwd}/users/${safeUser}`;
-                if (!fs.existsSync(userDir)) {
-                    fs.mkdirSync(userDir, { recursive: true });
-                }
-                targetFile = `${userDir}/CLAUDE.md`;
+            if (onMemoryUpdate) {
+                return await onMemoryUpdate(content, category);
             }
 
+            let targetFile = `${cwd}/CLAUDE.md`; // Default to group memory
+
+            // Fallback: write to CLAUDE.md if no callback (legacy)
+            // Note: activeUser is not available here anymore, so no isolation in fallback.
             const timestamp = new Date().toISOString().split('T')[0];
             const categoryTag = category ? `[${category.toUpperCase()}] ` : '';
             const entry = `\n- ${categoryTag}${content} (Added: ${timestamp})`;
@@ -423,7 +418,7 @@ export function buildAllTools(
     chatJid: string,
     groupFolder: string,
     isMain: boolean,
-    activeUser?: string,
+    onMemoryUpdate?: (content: string, category?: string) => Promise<string>,
 ): DynamicStructuredTool[] {
     return [
         // Core agent tools
@@ -443,6 +438,6 @@ export function buildAllTools(
         createTaskActionTool('resume_task', 'Resume a paused task.', groupFolder, isMain),
         createTaskActionTool('cancel_task', 'Cancel and delete a scheduled task.', groupFolder, isMain),
         createRegisterGroupTool(isMain),
-        createUpdateMemoryTool(cwd, isMain, activeUser),
+        createUpdateMemoryTool(cwd, isMain, onMemoryUpdate),
     ];
 }

@@ -151,6 +151,36 @@ The **recommended** approach is iptables rules blocking private IP ranges, with 
 | **Reminders/scheduling** | ~The LangChain provider has `schedule_task` and `list_tasks` tools available, but the system prompt is too generic.~ **Addressed:** System prompt now includes explicit instructions to use `schedule_task` for reminders and `list_tasks` to check them. |
 | **Persistent memory** | ~Claude Code natively manages `CLAUDE.md` as persistent memory.~ **Addressed:** Added dedicated `update_memory` tool with **multi-user isolation** (writes to `users/{user}/CLAUDE.md`). System prompt automatically loads the active user's memory. |
 
+## Test Coverage Improvement Plan
+
+Current test coverage is limited to host-side utilities. The following areas need valid test coverage:
+
+### 1. Container Side (Unit Tests)
+Create a new test suite in `container/agent-runner/src/` to verify provider logic without running Docker.
+
+- [ ] **Tools (`providers/tools.test.ts`):** 
+    - Test `createUpdateMemoryTool`:
+        - Verify it writes to `CLAUDE.md` for main group (no active user).
+        - Verify it writes to `users/{user}/CLAUDE.md` when `activeUser` is provided.
+        - Verify directory creation.
+- [ ] **LangChain Provider (`providers/langchain.test.ts`):**
+    - Mock `ChatOpenAI` / `ChatGoogleGenerativeAI`.
+    - Verify `query` passes `activeUser` to tool creation.
+    - Verify system prompt includes user memory when `activeUser` is set.
+
+### 2. Host Side (Integration/Unit)
+- [ ] **Container Input Serialization (`container-runner.test.ts`):**
+    - Update tests to verify `activeUser` field is correctly serialized into `ContainerInput`.
+- [ ] **Message Processing Logic (`index.test.ts`):**
+    - Refactor `processGroupMessages` to extract input preparation logic.
+    - Test that `activeUser` is correctly identified from the last message of a batch.
+
+### 3. End-to-End (Manual/Automated)
+- [ ] **Memory Isolation Test:**
+    - Script that simulates two users sending messages.
+    - Check that `users/A/CLAUDE.md` and `users/B/CLAUDE.md` are created separately.
+
+
 ## Configuration Reference
 
 ```bash

@@ -91,7 +91,34 @@ export class LangChainProvider implements LLMProvider {
             input.chatJid,
             input.groupFolder,
             input.isMain,
-            input.activeUser,
+            async (content: string, category?: string) => {
+                // Callback for update_memory tool
+                // Verify we have an active user
+                if (!input.activeUser) {
+                    return 'Error: No active user context found. Cannot update memory.';
+                }
+
+                // Sanitize user ID
+                const safeUser = input.activeUser.replace(/[^a-zA-Z0-9-]/g, '_');
+                const userDir = `${input.cwd}/users/${safeUser}`;
+
+                // Ensure directory exists
+                if (!fs.existsSync(userDir)) {
+                    fs.mkdirSync(userDir, { recursive: true });
+                }
+
+                const targetFile = `${userDir}/CLAUDE.md`;
+                const timestamp = new Date().toISOString().split('T')[0];
+                const categoryTag = category ? `[${category.toUpperCase()}] ` : '';
+                const entry = `\n- ${categoryTag}${content} (Added: ${timestamp})`;
+
+                try {
+                    fs.appendFileSync(targetFile, entry);
+                    return `Memory updated for user ${input.activeUser} in ${targetFile}`;
+                } catch (err) {
+                    return `Failed to update memory: ${err instanceof Error ? err.message : String(err)}`;
+                }
+            },
         );
 
         // Load system prompt
