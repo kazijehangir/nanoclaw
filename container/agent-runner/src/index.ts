@@ -170,17 +170,18 @@ function waitForIpcMessage(): Promise<string | null> {
 // Provider selection
 // ---------------------------------------------------------------------------
 
-function createProvider(mcpServerPath: string): LLMProvider {
+async function createProvider(mcpServerPath: string): Promise<LLMProvider> {
   const providerName = (process.env.LLM_PROVIDER || 'claude').toLowerCase();
 
   switch (providerName) {
     case 'claude':
       return new ClaudeProvider(mcpServerPath);
-    case 'langchain':
+    case 'langchain': {
       // Lazy import to avoid requiring langchain deps when using claude
-      throw new Error(
-        'LangChain provider is not yet implemented. Set LLM_PROVIDER=claude or omit it.'
-      );
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { LangChainProvider } = await import('./providers/langchain.js');
+      return new LangChainProvider();
+    }
     default:
       throw new Error(`Unknown LLM_PROVIDER: ${providerName}. Supported: claude, langchain`);
   }
@@ -307,8 +308,7 @@ async function main(): Promise<void> {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
 
-  // Create provider based on LLM_PROVIDER env var (passed via secrets/env)
-  const provider = createProvider(mcpServerPath);
+  const provider = await createProvider(mcpServerPath);
   log(`Using provider: ${provider.name}`);
 
   let sessionId = containerInput.sessionId;
