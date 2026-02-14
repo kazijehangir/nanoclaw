@@ -306,6 +306,19 @@ async function main(): Promise<void> {
     sdkEnv[key] = value;
   }
 
+  // LLM provider config must be in process.env so createProvider() can read them.
+  // These are non-secret configuration values (not API keys).
+  const LLM_CONFIG_VARS = ['LLM_PROVIDER', 'LLM_MODEL', 'LLM_BASE_URL'];
+  for (const key of LLM_CONFIG_VARS) {
+    if (sdkEnv[key]) {
+      process.env[key] = sdkEnv[key];
+    }
+  }
+  // API keys are passed via sdkEnv to the provider, not set in process.env
+  // (so bash subprocesses can't read them).
+  if (sdkEnv['LLM_API_KEY']) process.env['LLM_API_KEY'] = sdkEnv['LLM_API_KEY'];
+  if (sdkEnv['GOOGLE_API_KEY']) process.env['GOOGLE_API_KEY'] = sdkEnv['GOOGLE_API_KEY'];
+
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const mcpServerPath = path.join(__dirname, 'ipc-mcp-stdio.js');
 
