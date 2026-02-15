@@ -119,6 +119,7 @@ export class LangChainProvider implements LLMProvider {
                     return `Failed to update memory: ${err instanceof Error ? err.message : String(err)}`;
                 }
             },
+            input.gmailEnabled,
         );
 
         // Load system prompt

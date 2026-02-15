@@ -70,6 +70,7 @@ export interface AgentInput {
   chatJid: string;
   isMain: boolean;
   activeUser?: string;
+  gmailEnabled?: boolean;
 }
 
 // ---------------------------------------------------------------------------

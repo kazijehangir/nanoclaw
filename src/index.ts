@@ -46,6 +46,7 @@ import { formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { NewMessage, RegisteredGroup, Channel } from './types.js';
 import { logger } from './logger.js';
+import { isGmailAllowed } from './gmail-security.js';
 import {
   getChatName,
   isEmailProcessed,
@@ -210,6 +211,10 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
   let hadError = false;
   let outputSentToUser = false;
 
+  // Check if Gmail access is allowed for this group + these senders
+  const senders = [...new Set(missedMessages.map((m) => m.sender))];
+  const gmailEnabled = isGmailAllowed(group.folder, senders);
+
   const output = await runAgent(group, prompt, chatJid, async (result) => {
     // Streaming output callback — called for each agent result
     if (result.result) {
@@ -229,7 +234,7 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
     if (result.status === 'error') {
       hadError = true;
     }
-  }, hasAdminMessage);
+  }, hasAdminMessage, gmailEnabled);
 
   await channel.setTyping?.(chatJid, false);
   if (idleTimer) clearTimeout(idleTimer);
@@ -257,6 +262,7 @@ async function runAgent(
   chatJid: string,
   onOutput?: (output: ContainerOutput) => Promise<void>,
   hasAdminMessage?: boolean,
+  gmailEnabled?: boolean,
 ): Promise<'success' | 'error'> {
   const isMain = group.folder === MAIN_GROUP_FOLDER || hasAdminMessage === true;
   const sessionId = sessions[group.folder];
@@ -306,6 +312,7 @@ async function runAgent(
         groupFolder: group.folder,
         chatJid,
         isMain,
+        gmailEnabled: gmailEnabled === true,
       },
       (proc, containerName) => queue.registerProcess(chatJid, proc, containerName, group.folder),
       wrappedOnOutput,

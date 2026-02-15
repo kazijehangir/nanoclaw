@@ -28,6 +28,7 @@ interface ContainerInput {
   isMain: boolean;
   isScheduledTask?: boolean;
   secrets?: Record<string, string>;
+  gmailEnabled?: boolean;
 }
 
 interface ContainerOutput {
@@ -243,6 +244,7 @@ async function runQuery(
     groupFolder: containerInput.groupFolder,
     chatJid: containerInput.chatJid,
     isMain: containerInput.isMain,
+    gmailEnabled: containerInput.gmailEnabled,
   })) {
     messageCount++;
     log(`[msg #${messageCount}] type=${message.type}${message.type === 'system' ? `/${(message as AgentMessage & { subtype?: string }).subtype}` : ''}`);
@@ -331,6 +333,20 @@ async function main(): Promise<void> {
   if (!provider.supportsSessionResume && sessionId) {
     log(`Provider ${provider.name} does not support session resume, ignoring sessionId`);
     sessionId = undefined;
+  }
+
+  // Skip session resume if session was created by a different provider
+  // (e.g. switching from langchain to claude or vice versa)
+  // LangChain sessions use "langchain-{timestamp}" format; Claude sessions use SDK-generated IDs.
+  if (sessionId) {
+    const isLangchainSession = sessionId.startsWith('langchain-');
+    const isClaudeProvider = provider.name === 'claude';
+    const isLangchainProvider = provider.name === 'langchain';
+
+    if ((isLangchainSession && isClaudeProvider) || (!isLangchainSession && isLangchainProvider)) {
+      log(`Session ${sessionId} was created by a different provider, current provider is "${provider.name}" — starting fresh`);
+      sessionId = undefined;
+    }
   }
 
   fs.mkdirSync(IPC_INPUT_DIR, { recursive: true });

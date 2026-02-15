@@ -595,6 +595,7 @@ export function buildAllTools(
     groupFolder: string,
     isMain: boolean,
     onMemoryUpdate?: (content: string, category?: string) => Promise<string>,
+    gmailEnabled?: boolean,
 ): DynamicStructuredTool[] {
     const tools: DynamicStructuredTool[] = [
         // Core agent tools
@@ -619,8 +620,8 @@ export function buildAllTools(
         tools.push(createRegisterGroupTool(isMain));
     }
 
-    // Gmail tools (available if credentials exist)
-    if (fs.existsSync(GMAIL_CREDS_PATH)) {
+    // Gmail tools (available if credentials exist AND gmail is enabled for this group/user)
+    if (gmailEnabled && fs.existsSync(GMAIL_CREDS_PATH)) {
         tools.push(createGmailSearchTool());
         tools.push(createGmailReadTool());
         tools.push(createGmailSendTool());

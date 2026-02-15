@@ -41,6 +41,7 @@ export interface ContainerInput {
   isMain: boolean;
   isScheduledTask?: boolean;
   secrets?: Record<string, string>;
+  gmailEnabled?: boolean;
 }
 
 export interface ContainerOutput {
@@ -59,6 +60,7 @@ interface VolumeMount {
 function buildVolumeMounts(
   group: RegisteredGroup,
   isMain: boolean,
+  gmailEnabled: boolean,
 ): VolumeMount[] {
   const mounts: VolumeMount[] = [];
   const homeDir = getHomeDir();
@@ -167,9 +169,9 @@ function buildVolumeMounts(
     readonly: true,
   });
 
-  // Gmail credentials directory
+  // Gmail credentials directory — only mount if allowed by gmail-allowlist.json
   const gmailDir = path.join(homeDir, '.gmail-mcp');
-  if (fs.existsSync(gmailDir)) {
+  if (fs.existsSync(gmailDir) && gmailEnabled) {
     mounts.push({
       hostPath: gmailDir,
       containerPath: '/home/node/.gmail-mcp',
@@ -264,7 +266,7 @@ export async function runContainerAgent(
   const groupDir = path.join(GROUPS_DIR, group.folder);
   fs.mkdirSync(groupDir, { recursive: true });
 
-  const mounts = buildVolumeMounts(group, input.isMain);
+  const mounts = buildVolumeMounts(group, input.isMain, input.gmailEnabled === true);
   const safeName = group.folder.replace(/[^a-zA-Z0-9-]/g, '-');
   const containerName = `nanoclaw-${safeName}-${Date.now()}`;
   const containerArgs = buildContainerArgs(mounts, containerName);

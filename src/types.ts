@@ -27,6 +27,21 @@ export interface AllowedRoot {
   description?: string;
 }
 
+/**
+ * Gmail Allowlist - Security configuration for Gmail MCP access
+ * This file should be stored at ~/.config/nanoclaw/gmail-allowlist.json
+ * and is NOT mounted into any container, making it tamper-proof from agents.
+ */
+export interface GmailAllowlist {
+  // Group folder names allowed to use Gmail tools (e.g., "main", "discord-dm-12345")
+  allowedGroups: string[];
+  // Sender identifiers allowed to trigger Gmail access
+  // WhatsApp: "12345678@s.whatsapp.net", Discord: user ID
+  allowedUsers: string[];
+  // If true, bypasses both group and user checks (all access allowed)
+  allowAll: boolean;
+}
+
 export interface ContainerConfig {
   additionalMounts?: AdditionalMount[];
   timeout?: number; // Default: 300000 (5 minutes)

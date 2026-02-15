@@ -21,6 +21,7 @@ groups/global/*
 # Secrets
 *.keys.json
 .env
+gmail-allowlist.json
 
 # OS
 .DS_Store

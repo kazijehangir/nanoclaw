@@ -67,3 +67,7 @@ export const EMAIL_TRIGGER_VALUE = process.env.EMAIL_TRIGGER_VALUE || 'Chotay';
 export const EMAIL_CONTEXT_MODE = (process.env.EMAIL_CONTEXT_MODE || 'sender') as 'thread' | 'sender' | 'single';
 export const EMAIL_POLL_INTERVAL = parseInt(process.env.EMAIL_POLL_INTERVAL || '60000', 10);
 export const GMAIL_CREDS_DIR = path.join(HOME_DIR, '.gmail-mcp');
+export const GMAIL_ALLOWLIST_PATH = path.resolve(
+  PROJECT_ROOT,
+  'gmail-allowlist.json',
+);

@@ -104,7 +104,7 @@ export class WhatsAppChannel implements Channel {
         logger.info('Connected to WhatsApp');
 
         // Announce availability so WhatsApp relays subsequent presence updates (typing indicators)
-        this.sock.sendPresenceUpdate('available').catch(() => {});
+        this.sock.sendPresenceUpdate('available').catch(() => { });
 
         // Build LID to phone mapping from auth state for self-chat translation
         if (this.sock.user) {
@@ -177,7 +177,8 @@ export class WhatsAppChannel implements Channel {
           if (lidUser && content.includes(`@${lidUser}`)) {
             content = content.replace(`@${lidUser}`, `@${ASSISTANT_NAME}`);
           }
-          const sender = msg.key.participant || msg.key.remoteJid || '';
+          const rawSender = msg.key.participant || msg.key.remoteJid || '';
+          const sender = await this.translateJid(rawSender);
           const senderName = msg.pushName || sender.split('@')[0];
 
           this.opts.onMessage(chatJid, {
