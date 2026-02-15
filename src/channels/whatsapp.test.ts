@@ -329,7 +329,7 @@ describe('WhatsAppChannel', () => {
       );
     });
 
-    it('only emits metadata for unregistered groups', async () => {
+    it('delivers messages for unregistered WhatsApp groups', async () => {
       const opts = createTestOpts();
       const channel = new WhatsAppChannel(opts);
 
@@ -353,7 +353,14 @@ describe('WhatsAppChannel', () => {
         'unregistered@g.us',
         expect.any(String),
       );
-      expect(opts.onMessage).not.toHaveBeenCalled();
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'unregistered@g.us',
+        expect.objectContaining({
+          chat_jid: 'unregistered@g.us',
+          content: 'Hello',
+          sender_name: 'Bob',
+        }),
+      );
     });
 
     it('ignores status@broadcast messages', async () => {

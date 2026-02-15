@@ -155,6 +155,13 @@ export interface ChatInfo {
 /**
  * Get all known chats, ordered by most recent activity.
  */
+export function getChatName(jid: string): string | undefined {
+  const row = db
+    .prepare(`SELECT name FROM chats WHERE jid = ?`)
+    .get(jid) as { name: string } | undefined;
+  return row?.name;
+}
+
 export function getAllChats(): ChatInfo[] {
   return db
     .prepare(

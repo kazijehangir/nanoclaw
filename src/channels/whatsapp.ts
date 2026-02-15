@@ -161,9 +161,9 @@ export class WhatsAppChannel implements Channel {
         // Always notify about chat metadata for group discovery
         this.opts.onChatMetadata(chatJid, timestamp);
 
-        // Only deliver full message for registered groups
+        // Deliver messages for registered groups and any WhatsApp group chat
         const groups = this.opts.registeredGroups();
-        if (groups[chatJid]) {
+        if (groups[chatJid] || chatJid.endsWith('@g.us')) {
           const content =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||

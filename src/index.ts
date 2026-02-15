@@ -41,7 +41,7 @@ import { formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { NewMessage, RegisteredGroup, Channel } from './types.js';
 import { logger } from './logger.js';
-import { updateChatName } from './db.js';
+import { getChatName, updateChatName } from './db.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -520,7 +520,24 @@ async function main(): Promise<void> {
   if (hasWhatsAppAuth) {
     logger.info('Initializing WhatsApp channel');
     const whatsapp = new WhatsAppChannel({
-      onMessage: (chatJid, msg) => storeMessage(msg),
+      onMessage: (chatJid, msg) => {
+        storeMessage(msg);
+        // Auto-register WhatsApp groups on first message
+        if (chatJid.endsWith('@g.us') && !registeredGroups[chatJid]) {
+          const chatName = getChatName(chatJid);
+          const folderName = chatName
+            ? chatName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+            : `wa-group-${chatJid.split('@')[0]}`;
+          registerGroup(chatJid, {
+            name: chatName || chatJid,
+            folder: folderName,
+            trigger: ASSISTANT_NAME,
+            added_at: new Date().toISOString(),
+            requiresTrigger: true,
+          });
+          logger.info({ chatJid, name: chatName }, 'Auto-registered WhatsApp group');
+        }
+      },
       onChatMetadata: (chatJid, timestamp) => storeChatMetadata(chatJid, timestamp),
       registeredGroups: () => registeredGroups,
     });
