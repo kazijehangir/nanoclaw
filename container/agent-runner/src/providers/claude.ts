@@ -261,7 +261,8 @@ export class ClaudeProvider implements LLMProvider {
                     'TeamCreate', 'TeamDelete', 'SendMessage',
                     'TodoWrite', 'ToolSearch', 'Skill',
                     'NotebookEdit',
-                    'mcp__nanoclaw__*'
+                    'mcp__nanoclaw__*',
+                    'mcp__gmail__*'
                 ],
                 env: input.env,
                 permissionMode: 'bypassPermissions',
@@ -276,6 +277,10 @@ export class ClaudeProvider implements LLMProvider {
                             NANOCLAW_GROUP_FOLDER: input.groupFolder,
                             NANOCLAW_IS_MAIN: input.isMain ? '1' : '0',
                         },
+                    },
+                    gmail: {
+                        command: 'npx',
+                        args: ['-y', '@gongrzhe/server-gmail-autoauth-mcp'],
                     },
                 },
                 hooks: {

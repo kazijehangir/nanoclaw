@@ -59,3 +59,11 @@ export const TIMEZONE =
 export const LLM_PROVIDER = process.env.LLM_PROVIDER || 'claude';
 export const LLM_MODEL = process.env.LLM_MODEL || '';
 export const LLM_BASE_URL = process.env.LLM_BASE_URL || '';
+
+// Email channel configuration
+export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === '1' || process.env.EMAIL_ENABLED === 'true';
+export const EMAIL_TRIGGER_MODE = (process.env.EMAIL_TRIGGER_MODE || 'label') as 'label' | 'address' | 'subject';
+export const EMAIL_TRIGGER_VALUE = process.env.EMAIL_TRIGGER_VALUE || 'Chotay';
+export const EMAIL_CONTEXT_MODE = (process.env.EMAIL_CONTEXT_MODE || 'sender') as 'thread' | 'sender' | 'single';
+export const EMAIL_POLL_INTERVAL = parseInt(process.env.EMAIL_POLL_INTERVAL || '60000', 10);
+export const GMAIL_CREDS_DIR = path.join(HOME_DIR, '.gmail-mcp');

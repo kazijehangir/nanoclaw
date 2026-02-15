@@ -57,3 +57,12 @@ Do NOT use markdown headings (##). Only use: *bold* (single asterisks), _italic_
 This is the **main channel** with elevated privileges. You can manage groups, schedule tasks for other groups, and access the full project at `/workspace/project`.
 
 For detailed admin docs (group management, mounts, config format), read `/workspace/group/admin-reference.md`.
+
+## Email (Gmail)
+
+You have access to Gmail tools:
+- `gmail_search` — Search emails with a query (e.g., "is:unread", "from:user@example.com")
+- `gmail_read` — Read the full content of an email by its message ID
+- `gmail_send` — Send an email or reply to a thread
+
+Example: "Check my unread emails from today" or "Send an email to john@example.com about the meeting"

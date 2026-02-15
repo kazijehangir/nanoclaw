@@ -6,6 +6,11 @@ import path from 'path';
 import {
   ASSISTANT_NAME,
   DATA_DIR,
+  EMAIL_ENABLED,
+  EMAIL_POLL_INTERVAL,
+  EMAIL_TRIGGER_MODE,
+  EMAIL_TRIGGER_VALUE,
+  GROUPS_DIR,
   IDLE_TIMEOUT,
   MAIN_GROUP_FOLDER,
   POLL_INTERVAL,
@@ -41,7 +46,20 @@ import { formatMessages, formatOutbound } from './router.js';
 import { startSchedulerLoop } from './task-scheduler.js';
 import { NewMessage, RegisteredGroup, Channel } from './types.js';
 import { logger } from './logger.js';
-import { getChatName, updateChatName } from './db.js';
+import {
+  getChatName,
+  isEmailProcessed,
+  markEmailProcessed,
+  markEmailResponded,
+  updateChatName,
+} from './db.js';
+import {
+  checkForNewEmails,
+  getContextKey,
+  isGmailConfigured,
+  markAsRead,
+  sendEmailReply,
+} from './email-channel.js';
 
 // Re-export for backwards compatibility during refactor
 export { escapeXml, formatMessages } from './router.js';
@@ -400,6 +418,107 @@ async function startMessageLoop(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Email channel loop
+// ---------------------------------------------------------------------------
+
+async function processEmail(
+  email: import('./email-channel.js').EmailMessage,
+): Promise<void> {
+  const contextKey = getContextKey(email);
+  const folderName = contextKey.replace(/[^a-z0-9-_]/g, '_');
+  const groupFolder = `email/${folderName}`;
+
+  // Ensure group folder exists
+  const groupDir = path.join(GROUPS_DIR, groupFolder);
+  fs.mkdirSync(path.join(groupDir, 'logs'), { recursive: true });
+
+  // Write a CLAUDE.md for email context if it doesn't exist
+  const claudeMd = path.join(groupDir, 'CLAUDE.md');
+  if (!fs.existsSync(claudeMd)) {
+    fs.writeFileSync(
+      claudeMd,
+      '# Email Channel\n\nYou are responding to emails. Your response will be sent as an email reply.\nBe professional and clear. Keep responses concise but complete.\n',
+    );
+  }
+
+  const emailGroup: RegisteredGroup = {
+    name: `Email: ${contextKey}`,
+    folder: groupFolder,
+    trigger: '',
+    added_at: new Date().toISOString(),
+  };
+
+  const prompt = `<email>\n<from>${email.from}</from>\n<subject>${email.subject}</subject>\n<date>${email.date}</date>\n<body>\n${email.body}\n</body>\n</email>\n\nRespond to this email. Your response will be sent as an email reply. Do not include subject lines or email headers — just write the body of your reply.`;
+
+  let replyText = '';
+
+  const status = await runAgent(emailGroup, prompt, `email:${email.from}`, async (output) => {
+    if (output.result) {
+      const raw = typeof output.result === 'string' ? output.result : JSON.stringify(output.result);
+      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      if (text) replyText = text;
+    }
+  });
+
+  if (status === 'success' && replyText) {
+    await sendEmailReply(
+      email.from,
+      email.subject,
+      replyText,
+      email.threadId,
+      email.messageIdHeader,
+    );
+    markEmailResponded(email.id);
+  }
+}
+
+async function startEmailLoop(): Promise<void> {
+  if (!EMAIL_ENABLED || !isGmailConfigured()) {
+    if (EMAIL_ENABLED) {
+      logger.warn('Email channel enabled but Gmail credentials not found');
+    }
+    return;
+  }
+
+  logger.info(
+    { triggerMode: EMAIL_TRIGGER_MODE, triggerValue: EMAIL_TRIGGER_VALUE },
+    'Email channel running',
+  );
+
+  while (true) {
+    try {
+      const emails = await checkForNewEmails();
+
+      for (const email of emails) {
+        if (isEmailProcessed(email.id)) continue;
+
+        logger.info(
+          { from: email.from, subject: email.subject },
+          'Processing email',
+        );
+        markEmailProcessed(
+          email.id,
+          email.threadId,
+          email.from,
+          email.subject,
+        );
+        await markAsRead(email.id);
+
+        try {
+          await processEmail(email);
+        } catch (err) {
+          logger.error({ err, emailId: email.id }, 'Error processing email');
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, 'Error in email loop');
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, EMAIL_POLL_INTERVAL));
+  }
+}
+
 /**
  * Startup recovery: check for unprocessed messages in registered groups.
  * Handles crash between advancing lastTimestamp and processing messages.
@@ -591,6 +710,7 @@ async function main(): Promise<void> {
   queue.setProcessMessagesFn(processGroupMessages);
   recoverPendingMessages();
   startMessageLoop();
+  startEmailLoop();
 }
 
 // Guard: only run when executed directly, not when imported by tests

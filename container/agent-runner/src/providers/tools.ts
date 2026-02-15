@@ -410,6 +410,182 @@ export function createRegisterGroupTool(isMain: boolean): DynamicStructuredTool 
 }
 
 // ---------------------------------------------------------------------------
+// Gmail tools (uses Gmail REST API with saved OAuth credentials)
+// ---------------------------------------------------------------------------
+
+const GMAIL_CREDS_PATH = '/home/node/.gmail-mcp/credentials.json';
+const GMAIL_KEYS_PATH = '/home/node/.gmail-mcp/gcp-oauth.keys.json';
+
+async function getGmailAccessToken(): Promise<string | null> {
+    try {
+        if (!fs.existsSync(GMAIL_CREDS_PATH) || !fs.existsSync(GMAIL_KEYS_PATH)) {
+            return null;
+        }
+        const creds = JSON.parse(fs.readFileSync(GMAIL_CREDS_PATH, 'utf-8'));
+        const keys = JSON.parse(fs.readFileSync(GMAIL_KEYS_PATH, 'utf-8'));
+        const config = keys.installed || keys.web;
+
+        const resp = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: config.client_id,
+                client_secret: config.client_secret,
+                refresh_token: creds.refresh_token,
+                grant_type: 'refresh_token',
+            }),
+        });
+        const data = await resp.json() as { access_token?: string };
+        return data.access_token || null;
+    } catch {
+        return null;
+    }
+}
+
+async function gmailApi(endpoint: string, method = 'GET', body?: unknown): Promise<unknown> {
+    const token = await getGmailAccessToken();
+    if (!token) throw new Error('Gmail not configured. Missing credentials in ~/.gmail-mcp/');
+
+    const resp = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/${endpoint}`, {
+        method,
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`Gmail API error (${resp.status}): ${errText}`);
+    }
+    return resp.json();
+}
+
+export function createGmailSearchTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+        name: 'gmail_search',
+        description: 'Search Gmail messages. Returns a list of matching emails with subject, sender, and snippet.',
+        schema: z.object({
+            query: z.string().describe('Gmail search query (e.g., "is:unread", "from:user@example.com", "subject:hello")'),
+            max_results: z.number().optional().default(10).describe('Maximum number of results (default 10)'),
+        }),
+        func: async ({ query, max_results }) => {
+            try {
+                const list = await gmailApi(`messages?q=${encodeURIComponent(query)}&maxResults=${max_results}`) as {
+                    messages?: Array<{ id: string; threadId: string }>;
+                };
+                if (!list.messages || list.messages.length === 0) return 'No emails found.';
+
+                const results: string[] = [];
+                for (const msg of list.messages.slice(0, max_results)) {
+                    const detail = await gmailApi(`messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`) as {
+                        id: string;
+                        snippet: string;
+                        payload?: { headers?: Array<{ name: string; value: string }> };
+                    };
+                    const headers = detail.payload?.headers || [];
+                    const from = headers.find(h => h.name === 'From')?.value || 'Unknown';
+                    const subject = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
+                    const date = headers.find(h => h.name === 'Date')?.value || '';
+                    results.push(`- ID: ${msg.id}\n  From: ${from}\n  Subject: ${subject}\n  Date: ${date}\n  Snippet: ${detail.snippet}`);
+                }
+                return results.join('\n\n');
+            } catch (err) {
+                return `Error searching Gmail: ${err instanceof Error ? err.message : String(err)}`;
+            }
+        },
+    });
+}
+
+export function createGmailReadTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+        name: 'gmail_read',
+        description: 'Read the full content of an email by its message ID.',
+        schema: z.object({
+            message_id: z.string().describe('The Gmail message ID'),
+        }),
+        func: async ({ message_id }) => {
+            try {
+                const msg = await gmailApi(`messages/${message_id}?format=full`) as {
+                    id: string;
+                    threadId: string;
+                    snippet: string;
+                    payload?: {
+                        headers?: Array<{ name: string; value: string }>;
+                        body?: { data?: string };
+                        parts?: Array<{ mimeType: string; body?: { data?: string }; parts?: Array<{ mimeType: string; body?: { data?: string } }> }>;
+                    };
+                };
+                const headers = msg.payload?.headers || [];
+                const from = headers.find(h => h.name === 'From')?.value || 'Unknown';
+                const to = headers.find(h => h.name === 'To')?.value || '';
+                const subject = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
+                const date = headers.find(h => h.name === 'Date')?.value || '';
+
+                // Extract body text
+                let body = '';
+                const extractText = (parts: Array<{ mimeType: string; body?: { data?: string }; parts?: Array<{ mimeType: string; body?: { data?: string } }> }>): string => {
+                    for (const part of parts) {
+                        if (part.mimeType === 'text/plain' && part.body?.data) {
+                            return Buffer.from(part.body.data, 'base64url').toString('utf-8');
+                        }
+                        if (part.parts) {
+                            const nested = extractText(part.parts);
+                            if (nested) return nested;
+                        }
+                    }
+                    return '';
+                };
+
+                if (msg.payload?.parts) {
+                    body = extractText(msg.payload.parts);
+                } else if (msg.payload?.body?.data) {
+                    body = Buffer.from(msg.payload.body.data, 'base64url').toString('utf-8');
+                }
+
+                return `From: ${from}\nTo: ${to}\nSubject: ${subject}\nDate: ${date}\nThread ID: ${msg.threadId}\n\n${body || msg.snippet}`;
+            } catch (err) {
+                return `Error reading email: ${err instanceof Error ? err.message : String(err)}`;
+            }
+        },
+    });
+}
+
+export function createGmailSendTool(): DynamicStructuredTool {
+    return new DynamicStructuredTool({
+        name: 'gmail_send',
+        description: 'Send an email or reply to a thread.',
+        schema: z.object({
+            to: z.string().describe('Recipient email address'),
+            subject: z.string().describe('Email subject'),
+            body: z.string().describe('Email body (plain text)'),
+            thread_id: z.string().optional().describe('Thread ID to reply to (for threading)'),
+            in_reply_to: z.string().optional().describe('Message-ID header to reply to'),
+        }),
+        func: async ({ to, subject, body, thread_id, in_reply_to }) => {
+            try {
+                let headers = `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n`;
+                if (in_reply_to) {
+                    headers += `In-Reply-To: ${in_reply_to}\r\nReferences: ${in_reply_to}\r\n`;
+                }
+                const raw = Buffer.from(`${headers}\r\n${body}`).toString('base64url');
+
+                const endpoint = thread_id
+                    ? `messages/send`
+                    : `messages/send`;
+                const payload: { raw: string; threadId?: string } = { raw };
+                if (thread_id) payload.threadId = thread_id;
+
+                await gmailApi(endpoint, 'POST', payload);
+                return `Email sent to ${to} with subject "${subject}"`;
+            } catch (err) {
+                return `Error sending email: ${err instanceof Error ? err.message : String(err)}`;
+            }
+        },
+    });
+}
+
+// ---------------------------------------------------------------------------
 // Build complete tool set
 // ---------------------------------------------------------------------------
 
@@ -441,6 +617,13 @@ export function buildAllTools(
     // Only main group can register new groups
     if (isMain) {
         tools.push(createRegisterGroupTool(isMain));
+    }
+
+    // Gmail tools (available if credentials exist)
+    if (fs.existsSync(GMAIL_CREDS_PATH)) {
+        tools.push(createGmailSearchTool());
+        tools.push(createGmailReadTool());
+        tools.push(createGmailSendTool());
     }
 
     return tools;

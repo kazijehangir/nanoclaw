@@ -72,6 +72,15 @@ function createSchema(database: Database.Database): void {
       container_config TEXT,
       requires_trigger INTEGER DEFAULT 1
     );
+
+    CREATE TABLE IF NOT EXISTS processed_emails (
+      message_id TEXT PRIMARY KEY,
+      thread_id TEXT NOT NULL,
+      sender TEXT NOT NULL,
+      subject TEXT,
+      processed_at TEXT NOT NULL,
+      response_sent INTEGER DEFAULT 0
+    );
   `);
 
   // Add context_mode column if it doesn't exist (migration for existing DBs)
@@ -542,6 +551,35 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
     };
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Email tracking
+// ---------------------------------------------------------------------------
+
+export function isEmailProcessed(messageId: string): boolean {
+  const row = db
+    .prepare('SELECT 1 FROM processed_emails WHERE message_id = ?')
+    .get(messageId);
+  return !!row;
+}
+
+export function markEmailProcessed(
+  messageId: string,
+  threadId: string,
+  sender: string,
+  subject: string,
+): void {
+  db.prepare(
+    `INSERT OR REPLACE INTO processed_emails (message_id, thread_id, sender, subject, processed_at)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(messageId, threadId, sender, subject, new Date().toISOString());
+}
+
+export function markEmailResponded(messageId: string): void {
+  db.prepare(
+    'UPDATE processed_emails SET response_sent = 1 WHERE message_id = ?',
+  ).run(messageId);
 }
 
 // --- JSON migration ---
