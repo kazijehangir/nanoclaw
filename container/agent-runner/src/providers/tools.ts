@@ -369,21 +369,21 @@ export function createUpdateMemoryTool(
     });
 }
 
-export function createTaskActionTool(
-    action: 'pause_task' | 'resume_task' | 'cancel_task',
-    description: string,
+export function createManageTaskTool(
     groupFolder: string,
     isMain: boolean,
 ): DynamicStructuredTool {
     return new DynamicStructuredTool({
-        name: action,
-        description,
+        name: 'manage_task',
+        description: 'Pause, resume, or cancel a scheduled task.',
         schema: z.object({
+            action: z.enum(['pause', 'resume', 'cancel']).describe('The action to perform'),
             task_id: z.string().describe('The task ID'),
         }),
-        func: async ({ task_id }) => {
-            writeTaskAction(action, task_id, groupFolder, isMain);
-            return `Task ${task_id} ${action.replace('_', ' ')} requested.`;
+        func: async ({ action, task_id }) => {
+            const ipcAction = `${action}_task` as 'pause_task' | 'resume_task' | 'cancel_task';
+            writeTaskAction(ipcAction, task_id, groupFolder, isMain);
+            return `Task ${task_id} ${action} requested.`;
         },
     });
 }
@@ -420,7 +420,7 @@ export function buildAllTools(
     isMain: boolean,
     onMemoryUpdate?: (content: string, category?: string) => Promise<string>,
 ): DynamicStructuredTool[] {
-    return [
+    const tools: DynamicStructuredTool[] = [
         // Core agent tools
         createBashTool(cwd),
         createReadFileTool(),
@@ -434,10 +434,14 @@ export function buildAllTools(
         createSendMessageTool(chatJid, groupFolder),
         createScheduleTaskTool(chatJid, groupFolder, isMain),
         createListTasksTool(groupFolder, isMain),
-        createTaskActionTool('pause_task', 'Pause a scheduled task.', groupFolder, isMain),
-        createTaskActionTool('resume_task', 'Resume a paused task.', groupFolder, isMain),
-        createTaskActionTool('cancel_task', 'Cancel and delete a scheduled task.', groupFolder, isMain),
-        createRegisterGroupTool(isMain),
+        createManageTaskTool(groupFolder, isMain),
         createUpdateMemoryTool(cwd, isMain, onMemoryUpdate),
     ];
+
+    // Only main group can register new groups
+    if (isMain) {
+        tools.push(createRegisterGroupTool(isMain));
+    }
+
+    return tools;
 }
