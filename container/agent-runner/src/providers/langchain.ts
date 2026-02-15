@@ -177,13 +177,18 @@ export class LangChainProvider implements LLMProvider {
         // Emit a synthetic init message
         yield { type: 'init', sessionId: `langchain-${Date.now()}` };
 
+        // Accumulate conversation history across turns
+        const conversationHistory: Array<{ role: string; content: string }> = [];
+
         // Process messages from the prompt stream
         const processPrompt = async (text: string): Promise<AgentMessage | null> => {
             try {
                 log(`Invoking agent with prompt (${text.length} chars)`);
 
+                conversationHistory.push({ role: 'user', content: text });
+
                 const result = await agent.invoke(
-                    { messages: [{ role: 'user', content: text }] },
+                    { messages: [...conversationHistory] },
                     { recursionLimit: 100 },
                 );
 
@@ -197,6 +202,7 @@ export class LangChainProvider implements LLMProvider {
                     : null;
 
                 if (responseText) {
+                    conversationHistory.push({ role: 'assistant', content: responseText });
                     log(`Agent response: ${responseText.slice(0, 200)}`);
                 }
 
