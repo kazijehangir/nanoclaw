@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 
 // Mock config
 vi.mock('../config.js', () => ({
+  ASSISTANT_NAME: 'Chotay',
   STORE_DIR: '/tmp/nanoclaw-test-store',
 }));
 
@@ -487,6 +488,33 @@ describe('WhatsAppChannel', () => {
       expect(opts.onMessage).toHaveBeenCalledWith(
         'registered@g.us',
         expect.objectContaining({ content: 'Watch this' }),
+      );
+    });
+
+    it('replaces bot LID mention with assistant name in content', async () => {
+      const opts = createTestOpts();
+      const channel = new WhatsAppChannel(opts);
+
+      await connectChannel(channel);
+
+      // The fake socket has lid: '9876543210:1@lid', so LID user is '9876543210'
+      await triggerMessages([
+        {
+          key: {
+            id: 'msg-lid',
+            remoteJid: 'registered@g.us',
+            participant: '5551234@s.whatsapp.net',
+            fromMe: false,
+          },
+          message: { conversation: '@9876543210 hello there' },
+          pushName: 'Frank',
+          messageTimestamp: Math.floor(Date.now() / 1000),
+        },
+      ]);
+
+      expect(opts.onMessage).toHaveBeenCalledWith(
+        'registered@g.us',
+        expect.objectContaining({ content: '@Chotay hello there' }),
       );
     });
 

@@ -10,7 +10,7 @@ import makeWASocket, {
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 
-import { STORE_DIR } from '../config.js';
+import { ASSISTANT_NAME, STORE_DIR } from '../config.js';
 import {
   getLastGroupSync,
   setLastGroupSync,
@@ -164,12 +164,19 @@ export class WhatsAppChannel implements Channel {
         // Deliver messages for registered groups and any WhatsApp group chat
         const groups = this.opts.registeredGroups();
         if (groups[chatJid] || chatJid.endsWith('@g.us')) {
-          const content =
+          let content =
             msg.message?.conversation ||
             msg.message?.extendedTextMessage?.text ||
             msg.message?.imageMessage?.caption ||
             msg.message?.videoMessage?.caption ||
             '';
+
+          // Replace WhatsApp LID mention (e.g. @33372617326706) with @AssistantName
+          // so the trigger pattern can match
+          const lidUser = this.sock.user?.lid?.split(':')[0];
+          if (lidUser && content.includes(`@${lidUser}`)) {
+            content = content.replace(`@${lidUser}`, `@${ASSISTANT_NAME}`);
+          }
           const sender = msg.key.participant || msg.key.remoteJid || '';
           const senderName = msg.pushName || sender.split('@')[0];
 
