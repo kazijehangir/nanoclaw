@@ -4,15 +4,10 @@ export const ASSISTANT_NAME = process.env.ASSISTANT_NAME || 'Andy';
 export const POLL_INTERVAL = 2000;
 export const SCHEDULER_POLL_INTERVAL = 60000;
 
-// Absolute paths needed for container mounts
 const PROJECT_ROOT = process.cwd();
-const HOME_DIR = process.env.HOME || '/Users/user';
 
-// Mount security: allowlist stored OUTSIDE project root, never mounted into containers
-export const MOUNT_ALLOWLIST_PATH = path.join(
-  HOME_DIR,
-  '.config',
-  'nanoclaw',
+export const MOUNT_ALLOWLIST_PATH = path.resolve(
+  PROJECT_ROOT,
   'mount-allowlist.json',
 );
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
@@ -66,7 +61,7 @@ export const EMAIL_TRIGGER_MODE = (process.env.EMAIL_TRIGGER_MODE || 'label') as
 export const EMAIL_TRIGGER_VALUE = process.env.EMAIL_TRIGGER_VALUE || 'Chotay';
 export const EMAIL_CONTEXT_MODE = (process.env.EMAIL_CONTEXT_MODE || 'sender') as 'thread' | 'sender' | 'single';
 export const EMAIL_POLL_INTERVAL = parseInt(process.env.EMAIL_POLL_INTERVAL || '60000', 10);
-export const GMAIL_CREDS_DIR = path.join(HOME_DIR, '.gmail-mcp');
+export const GMAIL_CREDS_DIR = path.join(PROJECT_ROOT, 'store', 'gmail-mcp');
 export const GMAIL_ALLOWLIST_PATH = path.resolve(
   PROJECT_ROOT,
   'gmail-allowlist.json',

@@ -170,7 +170,7 @@ function buildVolumeMounts(
   });
 
   // Gmail credentials directory — only mount if allowed by gmail-allowlist.json
-  const gmailDir = path.join(homeDir, '.gmail-mcp');
+  const gmailDir = path.join(process.cwd(), 'store', 'gmail-mcp');
   if (fs.existsSync(gmailDir) && gmailEnabled) {
     mounts.push({
       hostPath: gmailDir,

@@ -4,7 +4,7 @@
  * Polls Gmail for emails matching a trigger (label, address, or subject prefix),
  * processes them through the agent, and sends email replies.
  *
- * Uses Gmail REST API directly with OAuth credentials from ~/.gmail-mcp/.
+ * Uses Gmail REST API directly with OAuth credentials from store/gmail-mcp/.
  */
 
 import fs from 'fs';
@@ -45,7 +45,7 @@ async function getAccessToken(): Promise<string> {
   }
 
   if (!fs.existsSync(GMAIL_CREDS_PATH) || !fs.existsSync(GMAIL_KEYS_PATH)) {
-    throw new Error('Gmail credentials not found in ~/.gmail-mcp/');
+    throw new Error('Gmail credentials not found in store/gmail-mcp/');
   }
 
   const creds = JSON.parse(fs.readFileSync(GMAIL_CREDS_PATH, 'utf-8'));

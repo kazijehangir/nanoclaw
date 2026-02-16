@@ -6,8 +6,7 @@ export interface AdditionalMount {
 
 /**
  * Mount Allowlist - Security configuration for additional mounts
- * This file should be stored at ~/.config/nanoclaw/mount-allowlist.json
- * and is NOT mounted into any container, making it tamper-proof from agents.
+ * Stored at mount-allowlist.json in the project root.
  */
 export interface MountAllowlist {
   // Directories that can be mounted into containers
@@ -29,8 +28,7 @@ export interface AllowedRoot {
 
 /**
  * Gmail Allowlist - Security configuration for Gmail MCP access
- * This file should be stored at ~/.config/nanoclaw/gmail-allowlist.json
- * and is NOT mounted into any container, making it tamper-proof from agents.
+ * Stored at gmail-allowlist.json in the project root.
  */
 export interface GmailAllowlist {
   // Group folder names allowed to use Gmail tools (e.g., "main", "discord-dm-12345")

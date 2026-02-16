@@ -1,10 +1,9 @@
 /**
  * Mount Security Module for NanoClaw
  *
- * Validates additional mounts against an allowlist stored OUTSIDE the project root.
- * This prevents container agents from modifying security configuration.
+ * Validates additional mounts against an allowlist.
  *
- * Allowlist location: ~/.config/nanoclaw/mount-allowlist.json
+ * Allowlist location: mount-allowlist.json (project root)
  */
 import fs from 'fs';
 import path from 'path';
