@@ -33,6 +33,7 @@ export class WhatsAppChannel implements Channel {
   prefixAssistantName = true;
 
   private sock!: WASocket;
+  private readonly MAX_QUEUE_SIZE = 1000;
   private connected = false;
   private lidToPhoneMap: Record<string, string> = {};
   private outgoingQueue: Array<{ jid: string; text: string }> = [];
@@ -205,7 +206,7 @@ export class WhatsAppChannel implements Channel {
 
   async sendMessage(jid: string, text: string): Promise<void> {
     if (!this.connected) {
-      this.outgoingQueue.push({ jid, text });
+      this.queueMessage(jid, text);
       logger.info(
         { jid, length: text.length, queueSize: this.outgoingQueue.length },
         'WA disconnected, message queued',
@@ -217,7 +218,7 @@ export class WhatsAppChannel implements Channel {
       logger.info({ jid, length: text.length }, 'Message sent');
     } catch (err) {
       // If send fails, queue it for retry on reconnect
-      this.outgoingQueue.push({ jid, text });
+      this.queueMessage(jid, text);
       logger.warn(
         { jid, err, queueSize: this.outgoingQueue.length },
         'Failed to send, message queued',
@@ -332,5 +333,16 @@ export class WhatsAppChannel implements Channel {
     } finally {
       this.flushing = false;
     }
+  }
+
+  private queueMessage(jid: string, text: string): void {
+    if (this.outgoingQueue.length >= this.MAX_QUEUE_SIZE) {
+      this.outgoingQueue.shift();
+      logger.warn(
+        { queueSize: this.outgoingQueue.length },
+        'Outgoing queue full, dropped oldest message',
+      );
+    }
+    this.outgoingQueue.push({ jid, text });
   }
 }
