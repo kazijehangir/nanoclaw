@@ -8,6 +8,15 @@ const OUTPUT_END_MARKER = '---NANOCLAW_OUTPUT_END---';
 
 // Mock config
 vi.mock('./config.js', () => ({
+  ALLOWED_SECRETS: [
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'ANTHROPIC_API_KEY',
+    'LLM_PROVIDER',
+    'LLM_API_KEY',
+    'LLM_BASE_URL',
+    'LLM_MODEL',
+    'GOOGLE_API_KEY',
+  ],
   CONTAINER_IMAGE: 'nanoclaw-agent:latest',
   CONTAINER_MAX_OUTPUT_SIZE: 10485760,
   CONTAINER_TIMEOUT: 1800000, // 30min
@@ -70,14 +79,17 @@ let fakeProc: ReturnType<typeof createFakeProcess>;
 
 // Mock child_process.spawn
 vi.mock('child_process', async () => {
-  const actual = await vi.importActual<typeof import('child_process')>('child_process');
+  const actual =
+    await vi.importActual<typeof import('child_process')>('child_process');
   return {
     ...actual,
     spawn: vi.fn(() => fakeProc),
-    exec: vi.fn((_cmd: string, _opts: unknown, cb?: (err: Error | null) => void) => {
-      if (cb) cb(null);
-      return new EventEmitter();
-    }),
+    exec: vi.fn(
+      (_cmd: string, _opts: unknown, cb?: (err: Error | null) => void) => {
+        if (cb) cb(null);
+        return new EventEmitter();
+      },
+    ),
   };
 });
 
@@ -98,7 +110,10 @@ const testInput = {
   isMain: false,
 };
 
-function emitOutputMarker(proc: ReturnType<typeof createFakeProcess>, output: ContainerOutput) {
+function emitOutputMarker(
+  proc: ReturnType<typeof createFakeProcess>,
+  output: ContainerOutput,
+) {
   const json = JSON.stringify(output);
   proc.stdout.push(`${OUTPUT_START_MARKER}\n${json}\n${OUTPUT_END_MARKER}\n`);
 }
@@ -198,5 +213,42 @@ describe('container-runner timeout behavior', () => {
     const result = await resultPromise;
     expect(result.status).toBe('success');
     expect(result.newSessionId).toBe('session-456');
+  });
+});
+
+describe('container-runner secrets handling', () => {
+  let fs: any;
+
+  beforeEach(async () => {
+    fs = (await import('fs')).default;
+    fakeProc = createFakeProcess();
+  });
+
+  it('passes allowed secrets to container stdin', async () => {
+    fs.existsSync.mockImplementation((path: string) => path.endsWith('.env'));
+    fs.readFileSync.mockReturnValue(`
+      ANTHROPIC_API_KEY=sk-test-key
+      LLM_MODEL=gpt-4
+      IGNORED_VAR=secret
+    `);
+
+    let capturedInput: any;
+    fakeProc.stdin.write = vi.fn((data: string) => {
+      capturedInput = JSON.parse(data);
+      return true;
+    });
+
+    const resultPromise = runContainerAgent(testGroup, testInput, () => {});
+
+    // Emit output and close so it completes
+    emitOutputMarker(fakeProc, { status: 'success', result: 'ok' });
+    fakeProc.emit('close', 0);
+
+    await resultPromise;
+
+    expect(capturedInput.secrets).toBeDefined();
+    expect(capturedInput.secrets.ANTHROPIC_API_KEY).toBe('sk-test-key');
+    expect(capturedInput.secrets.LLM_MODEL).toBe('gpt-4');
+    expect(capturedInput.secrets.IGNORED_VAR).toBeUndefined();
   });
 });

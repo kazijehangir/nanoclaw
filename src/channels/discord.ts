@@ -11,7 +11,12 @@ import {
 } from 'discord.js';
 
 import { logger } from '../logger.js';
-import { Channel, OnInboundMessage, OnChatMetadata, RegisteredGroup } from '../types.js';
+import {
+  Channel,
+  OnInboundMessage,
+  OnChatMetadata,
+  RegisteredGroup,
+} from '../types.js';
 
 export interface DiscordChannelOpts {
   token: string;
@@ -60,7 +65,10 @@ export class DiscordChannel implements Channel {
         // Set up message handler
         this.client.on('messageCreate', (message) => {
           this.handleMessage(message).catch((err) => {
-            logger.error({ err, messageId: message.id }, 'Error handling Discord message');
+            logger.error(
+              { err, messageId: message.id },
+              'Error handling Discord message',
+            );
           });
         });
 
@@ -86,13 +94,18 @@ export class DiscordChannel implements Channel {
     });
   }
 
-  private async handleMessage(message: Message | PartialMessage): Promise<void> {
-    logger.debug({
-      messageId: message.id,
-      author: message.author?.tag,
-      content: message.content?.substring(0, 50),
-      channelType: message.channel.type
-    }, 'Discord message received');
+  private async handleMessage(
+    message: Message | PartialMessage,
+  ): Promise<void> {
+    logger.debug(
+      {
+        messageId: message.id,
+        author: message.author?.tag,
+        content: message.content?.substring(0, 50),
+        channelType: message.channel.type,
+      },
+      'Discord message received',
+    );
 
     // Ignore bot messages
     if (message.author?.bot) {
@@ -188,7 +201,9 @@ export class DiscordChannel implements Channel {
     }
   }
 
-  private async resolveChannel(jid: string): Promise<TextChannel | DMChannel | null> {
+  private async resolveChannel(
+    jid: string,
+  ): Promise<TextChannel | DMChannel | null> {
     if (jid.endsWith('@discord.dm')) {
       const userId = jid.split('@')[0];
       try {
@@ -202,7 +217,10 @@ export class DiscordChannel implements Channel {
       const channelId = jid.split('@')[0];
       try {
         const channel = await this.client.channels.fetch(channelId);
-        if (channel?.type === ChannelType.GuildText || channel?.type === ChannelType.DM) {
+        if (
+          channel?.type === ChannelType.GuildText ||
+          channel?.type === ChannelType.DM
+        ) {
           return channel as TextChannel | DMChannel;
         }
         return null;

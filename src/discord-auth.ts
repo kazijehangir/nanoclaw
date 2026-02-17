@@ -31,7 +31,9 @@ async function main() {
 
   console.log('To create a Discord bot:\n');
   console.log('1. Go to https://discord.com/developers/applications');
-  console.log('2. Click "New Application" and give it a name (e.g., "NanoClaw")');
+  console.log(
+    '2. Click "New Application" and give it a name (e.g., "NanoClaw")',
+  );
   console.log('3. Go to the "Bot" tab and click "Add Bot"');
   console.log('4. Under "Privileged Gateway Intents", enable:');
   console.log('   - MESSAGE CONTENT INTENT (required to read messages)');
@@ -40,7 +42,9 @@ async function main() {
   console.log('6. To invite the bot to your server:');
   console.log('   - Go to "OAuth2" → "URL Generator"');
   console.log('   - Select scopes: "bot"');
-  console.log('   - Select permissions: "Send Messages", "Read Messages/View Channels"');
+  console.log(
+    '   - Select permissions: "Send Messages", "Read Messages/View Channels"',
+  );
   console.log('   - Copy the generated URL and open it in your browser\n');
 
   const token = await question('Paste your Discord bot token: ');
@@ -54,7 +58,9 @@ async function main() {
 
   // Validate token format (Discord tokens are typically base64-encoded)
   if (trimmedToken.length < 50) {
-    console.error('\nError: Token seems too short. Please check and try again.');
+    console.error(
+      '\nError: Token seems too short. Please check and try again.',
+    );
     process.exit(1);
   }
 
@@ -67,7 +73,9 @@ async function main() {
   }
 
   // Remove existing DISCORD_BOT_TOKEN if present
-  const lines = envContent.split('\n').filter((line) => !line.startsWith('DISCORD_BOT_TOKEN='));
+  const lines = envContent
+    .split('\n')
+    .filter((line) => !line.startsWith('DISCORD_BOT_TOKEN='));
 
   // Add new token
   lines.push(`DISCORD_BOT_TOKEN=${trimmedToken}`);
@@ -76,9 +84,13 @@ async function main() {
 
   console.log('\n✓ Discord bot token saved to .env');
   console.log('\nNext steps:');
-  console.log('1. Make sure you\'ve invited the bot to your server (see step 6 above)');
+  console.log(
+    "1. Make sure you've invited the bot to your server (see step 6 above)",
+  );
   console.log('2. Run the setup to configure your main channel: npm run setup');
-  console.log('3. Or rebuild and restart NanoClaw: npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw\n');
+  console.log(
+    '3. Or rebuild and restart NanoClaw: npm run build && launchctl kickstart -k gui/$(id -u)/com.nanoclaw\n',
+  );
 
   rl.close();
 }
