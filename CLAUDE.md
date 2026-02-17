@@ -6,6 +6,14 @@ AI agent assistant with multi-LLM support. See [README.md](README.md) for philos
 
 Single Node.js process that connects to WhatsApp/Discord, routes messages to an LLM provider running in Docker containers. Each group has isolated filesystem and memory. Supports Claude (default), Gemini, OpenAI, and local models via LMStudio/Ollama.
 
+## Platform
+
+- **OS:** Ubuntu Linux (running on `ubuntu` host)
+- **Container runtime:** Docker
+- **Service manager:** systemd (user service)
+- **Node.js:** Managed via nvm (`~/.nvm/versions/node/`)
+- **Project path:** `/home/jehangir/nanoclaw`
+
 ## Key Files
 
 | File | Purpose |
@@ -44,10 +52,26 @@ npm run build        # Compile TypeScript
 ./container/build.sh # Rebuild agent container
 ```
 
-Service management:
+Service management (systemd on Linux):
 ```bash
-launchctl load ~/Library/LaunchAgents/com.nanoclaw.plist
-launchctl unload ~/Library/LaunchAgents/com.nanoclaw.plist
+systemctl --user status nanoclaw       # Check status
+systemctl --user restart nanoclaw      # Restart service
+systemctl --user stop nanoclaw         # Stop service
+systemctl --user start nanoclaw        # Start service
+journalctl --user -u nanoclaw -f       # Stream journal logs
+```
+
+Service file: `~/.config/systemd/user/nanoclaw.service`
+
+Logs:
+```bash
+tail -f ~/nanoclaw/logs/nanoclaw.log        # Application logs
+tail -f ~/nanoclaw/logs/nanoclaw.error.log  # Error logs
+```
+
+After code changes, rebuild and restart:
+```bash
+npm run build && systemctl --user restart nanoclaw
 ```
 
 ## Container Build Cache

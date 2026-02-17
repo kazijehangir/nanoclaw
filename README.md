@@ -115,7 +115,9 @@ Skills we'd love to see:
 - macOS or Linux
 - Node.js 20+
 - [Claude Code](https://claude.ai/download) (for default Claude provider)
-- [Docker](https://docker.com/products/docker-desktop)
+- [Docker](https://docker.com/products/docker-desktop) (or Docker Engine on Linux)
+
+On Linux, the `/setup` skill configures a systemd user service (`~/.config/systemd/user/nanoclaw.service`) that starts on boot and restarts on failure. On macOS, it uses launchd (`~/Library/LaunchAgents/com.nanoclaw.plist`).
 
 ## LLM Provider Configuration
 
@@ -201,7 +203,7 @@ Docker provides cross-platform support (macOS and Linux), a large ecosystem, and
 
 **Can I run this on Linux?**
 
-Yes. NanoClaw uses Docker, which works on both macOS and Linux. Just install Docker and run `/setup`.
+Yes. NanoClaw uses Docker, which works on both macOS and Linux. Just install Docker and run `/setup`. The setup skill will create a systemd user service that auto-starts on boot. Manage it with `systemctl --user {status,restart,stop} nanoclaw`.
 
 **Is this secure?**
 
