@@ -7,6 +7,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import { CronExpressionParser } from 'cron-parser';
@@ -23,7 +24,7 @@ const isMain = process.env.NANOCLAW_IS_MAIN === '1';
 function writeIpcFile(dir: string, data: object): string {
   fs.mkdirSync(dir, { recursive: true });
 
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+  const filename = `${Date.now()}-${randomUUID()}.json`;
   const filepath = path.join(dir, filename);
 
   // Atomic write: temp file then rename
