@@ -3,7 +3,12 @@ import fs from 'fs';
 import path from 'path';
 
 import { DATA_DIR, STORE_DIR } from './config.js';
-import { NewMessage, RegisteredGroup, ScheduledTask, TaskRunLog } from './types.js';
+import {
+  NewMessage,
+  RegisteredGroup,
+  ScheduledTask,
+  TaskRunLog,
+} from './types.js';
 
 let db: Database.Database;
 
@@ -165,9 +170,9 @@ export interface ChatInfo {
  * Get all known chats, ordered by most recent activity.
  */
 export function getChatName(jid: string): string | undefined {
-  const row = db
-    .prepare(`SELECT name FROM chats WHERE jid = ?`)
-    .get(jid) as { name: string } | undefined;
+  const row = db.prepare(`SELECT name FROM chats WHERE jid = ?`).get(jid) as
+    | { name: string }
+    | undefined;
   return row?.name;
 }
 
@@ -494,14 +499,12 @@ export function getRegisteredGroup(
     containerConfig: row.container_config
       ? JSON.parse(row.container_config)
       : undefined,
-    requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+    requiresTrigger:
+      row.requires_trigger === null ? undefined : row.requires_trigger === 1,
   };
 }
 
-export function setRegisteredGroup(
-  jid: string,
-  group: RegisteredGroup,
-): void {
+export function setRegisteredGroup(jid: string, group: RegisteredGroup): void {
   // Merge adminUsers into containerConfig for storage
   const configToStore: any = { ...(group.containerConfig || {}) };
   if (group.adminUsers) {
@@ -517,15 +520,15 @@ export function setRegisteredGroup(
     group.folder,
     group.trigger,
     group.added_at,
-    Object.keys(configToStore).length > 0 ? JSON.stringify(configToStore) : null,
+    Object.keys(configToStore).length > 0
+      ? JSON.stringify(configToStore)
+      : null,
     group.requiresTrigger === undefined ? 1 : group.requiresTrigger ? 1 : 0,
   );
 }
 
 export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
-  const rows = db
-    .prepare('SELECT * FROM registered_groups')
-    .all() as Array<{
+  const rows = db.prepare('SELECT * FROM registered_groups').all() as Array<{
     jid: string;
     name: string;
     folder: string;
@@ -546,7 +549,8 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
       trigger: row.trigger_pattern,
       added_at: row.added_at,
       containerConfig: Object.keys(config).length > 0 ? config : undefined,
-      requiresTrigger: row.requires_trigger === null ? undefined : row.requires_trigger === 1,
+      requiresTrigger:
+        row.requires_trigger === null ? undefined : row.requires_trigger === 1,
       adminUsers: adminUsers,
     };
   }

@@ -26,10 +26,7 @@ export const CONTAINER_MAX_OUTPUT_SIZE = parseInt(
   10,
 ); // 10MB default
 export const IPC_POLL_INTERVAL = 1000;
-export const IDLE_TIMEOUT = parseInt(
-  process.env.IDLE_TIMEOUT || '1800000',
-  10,
-); // 30min default — how long to keep container alive after last result
+export const IDLE_TIMEOUT = parseInt(process.env.IDLE_TIMEOUT || '1800000', 10); // 30min default — how long to keep container alive after last result
 export const MAX_CONCURRENT_CONTAINERS = Math.max(
   1,
   parseInt(process.env.MAX_CONCURRENT_CONTAINERS || '5', 10) || 5,
@@ -56,13 +53,33 @@ export const LLM_MODEL = process.env.LLM_MODEL || '';
 export const LLM_BASE_URL = process.env.LLM_BASE_URL || '';
 
 // Email channel configuration
-export const EMAIL_ENABLED = process.env.EMAIL_ENABLED === '1' || process.env.EMAIL_ENABLED === 'true';
-export const EMAIL_TRIGGER_MODE = (process.env.EMAIL_TRIGGER_MODE || 'label') as 'label' | 'address' | 'subject';
+export const EMAIL_ENABLED =
+  process.env.EMAIL_ENABLED === '1' || process.env.EMAIL_ENABLED === 'true';
+export const EMAIL_TRIGGER_MODE = (process.env.EMAIL_TRIGGER_MODE ||
+  'label') as 'label' | 'address' | 'subject';
 export const EMAIL_TRIGGER_VALUE = process.env.EMAIL_TRIGGER_VALUE || 'Chotay';
-export const EMAIL_CONTEXT_MODE = (process.env.EMAIL_CONTEXT_MODE || 'sender') as 'thread' | 'sender' | 'single';
-export const EMAIL_POLL_INTERVAL = parseInt(process.env.EMAIL_POLL_INTERVAL || '60000', 10);
+export const EMAIL_CONTEXT_MODE = (process.env.EMAIL_CONTEXT_MODE ||
+  'sender') as 'thread' | 'sender' | 'single';
+export const EMAIL_POLL_INTERVAL = parseInt(
+  process.env.EMAIL_POLL_INTERVAL || '60000',
+  10,
+);
 export const GMAIL_CREDS_DIR = path.join(PROJECT_ROOT, 'store', 'gmail-mcp');
 export const GMAIL_ALLOWLIST_PATH = path.resolve(
   PROJECT_ROOT,
   'gmail-allowlist.json',
 );
+
+// List of environment variables to pass to the container
+export const ALLOWED_SECRETS = [
+  'CLAUDE_CODE_OAUTH_TOKEN',
+  'ANTHROPIC_API_KEY',
+  'LLM_PROVIDER',
+  'LLM_API_KEY',
+  'LLM_BASE_URL',
+  'LLM_MODEL',
+  'GOOGLE_API_KEY',
+  ...(process.env.ADDITIONAL_ALLOWED_SECRETS
+    ? process.env.ADDITIONAL_ALLOWED_SECRETS.split(',').map((s) => s.trim())
+    : []),
+];

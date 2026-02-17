@@ -125,19 +125,17 @@ function buildSearchQuery(): string {
   }
 }
 
-function extractBody(
-  payload: {
+function extractBody(payload: {
+  body?: { data?: string };
+  parts?: Array<{
+    mimeType: string;
     body?: { data?: string };
     parts?: Array<{
       mimeType: string;
       body?: { data?: string };
-      parts?: Array<{
-        mimeType: string;
-        body?: { data?: string };
-      }>;
     }>;
-  },
-): string {
+  }>;
+}): string {
   if (payload.parts) {
     for (const part of payload.parts) {
       if (part.mimeType === 'text/plain' && part.body?.data) {
@@ -169,9 +167,7 @@ export async function checkForNewEmails(): Promise<EmailMessage[]> {
 
   for (const msg of list.messages) {
     try {
-      const detail = (await gmailApi(
-        `messages/${msg.id}?format=full`,
-      )) as {
+      const detail = (await gmailApi(`messages/${msg.id}?format=full`)) as {
         id: string;
         threadId: string;
         snippet: string;
@@ -194,7 +190,9 @@ export async function checkForNewEmails(): Promise<EmailMessage[]> {
         headers.find((h) => h.name.toLowerCase() === name.toLowerCase())
           ?.value || '';
 
-      const body = detail.payload ? extractBody(detail.payload) : detail.snippet;
+      const body = detail.payload
+        ? extractBody(detail.payload)
+        : detail.snippet;
 
       emails.push({
         id: msg.id,
@@ -231,9 +229,7 @@ export async function sendEmailReply(
   threadId: string,
   inReplyTo?: string,
 ): Promise<void> {
-  const replySubject = subject.startsWith('Re:')
-    ? subject
-    : `Re: ${subject}`;
+  const replySubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 
   let headers = `To: ${to}\r\nSubject: ${replySubject}\r\nContent-Type: text/plain; charset=utf-8\r\n`;
   if (inReplyTo) {
@@ -262,7 +258,5 @@ export function getContextKey(email: EmailMessage): string {
 }
 
 export function isGmailConfigured(): boolean {
-  return (
-    fs.existsSync(GMAIL_CREDS_PATH) && fs.existsSync(GMAIL_KEYS_PATH)
-  );
+  return fs.existsSync(GMAIL_CREDS_PATH) && fs.existsSync(GMAIL_KEYS_PATH);
 }
