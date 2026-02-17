@@ -11,6 +11,7 @@
 // @ts-ignore - SDK available in container environment only
 import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -21,7 +22,7 @@ const RESULTS_DIR = path.join(IPC_DIR, 'x_results');
 
 function writeIpcFile(dir: string, data: object): string {
   fs.mkdirSync(dir, { recursive: true });
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+  const filename = `${Date.now()}-${randomUUID()}.json`;
   const filepath = path.join(dir, filename);
   const tempPath = `${filepath}.tmp`;
   fs.writeFileSync(tempPath, JSON.stringify(data, null, 2));
@@ -87,7 +88,7 @@ Make sure the content is appropriate and within X's character limit (280 chars f
           };
         }
 
-        const requestId = `xpost-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `xpost-${Date.now()}-${randomUUID()}`;
         writeIpcFile(TASKS_DIR, {
           type: 'x_post',
           requestId,
@@ -120,7 +121,7 @@ Provide the tweet URL or tweet ID to like.`,
           };
         }
 
-        const requestId = `xlike-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `xlike-${Date.now()}-${randomUUID()}`;
         writeIpcFile(TASKS_DIR, {
           type: 'x_like',
           requestId,
@@ -154,7 +155,7 @@ Provide the tweet URL and your reply content.`,
           };
         }
 
-        const requestId = `xreply-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `xreply-${Date.now()}-${randomUUID()}`;
         writeIpcFile(TASKS_DIR, {
           type: 'x_reply',
           requestId,
@@ -188,7 +189,7 @@ Provide the tweet URL to retweet.`,
           };
         }
 
-        const requestId = `xretweet-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `xretweet-${Date.now()}-${randomUUID()}`;
         writeIpcFile(TASKS_DIR, {
           type: 'x_retweet',
           requestId,
@@ -222,7 +223,7 @@ Retweet with your own comment added.`,
           };
         }
 
-        const requestId = `xquote-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const requestId = `xquote-${Date.now()}-${randomUUID()}`;
         writeIpcFile(TASKS_DIR, {
           type: 'x_quote',
           requestId,

@@ -6,6 +6,7 @@
  * duplicating logic.
  */
 
+import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -20,7 +21,7 @@ const TASKS_DIR = path.join(IPC_DIR, 'tasks');
 export function writeIpcFile(dir: string, data: object): string {
     fs.mkdirSync(dir, { recursive: true });
 
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.json`;
+    const filename = `${Date.now()}-${randomUUID()}.json`;
     const filepath = path.join(dir, filename);
 
     // Atomic write: temp file then rename
