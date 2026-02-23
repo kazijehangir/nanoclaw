@@ -28,6 +28,23 @@ export interface WhatsAppChannelOpts {
   registeredGroups: () => Record<string, RegisteredGroup>;
 }
 
+interface BoomError {
+  output: {
+    statusCode: number;
+  };
+}
+
+function isBoomError(err: unknown): err is BoomError {
+  return (
+    typeof err === 'object' &&
+    err !== null &&
+    'output' in err &&
+    typeof (err as any).output === 'object' &&
+    (err as any).output !== null &&
+    'statusCode' in (err as any).output
+  );
+}
+
 export class WhatsAppChannel implements Channel {
   name = 'whatsapp';
   prefixAssistantName = true;
@@ -82,7 +99,8 @@ export class WhatsAppChannel implements Channel {
 
       if (connection === 'close') {
         this.connected = false;
-        const reason = (lastDisconnect?.error as any)?.output?.statusCode;
+        const error = lastDisconnect?.error;
+        const reason = isBoomError(error) ? error.output.statusCode : undefined;
         const shouldReconnect = reason !== DisconnectReason.loggedOut;
         logger.info(
           {
