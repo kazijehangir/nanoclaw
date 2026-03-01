@@ -18,6 +18,11 @@ vi.mock('fs', async () => {
       mkdirSync: vi.fn(),
       writeFileSync: vi.fn(),
       renameSync: vi.fn(),
+      promises: {
+        mkdir: vi.fn(),
+        writeFile: vi.fn(),
+        rename: vi.fn(),
+      },
     },
   };
 });
@@ -44,7 +49,7 @@ describe('Security Fix: Secure Randomness', () => {
 
     let sendMessageResult = false;
     queue.setProcessMessagesFn(async () => {
-      sendMessageResult = queue.sendMessage(groupJid, 'hello');
+      sendMessageResult = await queue.sendMessage(groupJid, 'hello');
       return true;
     });
 
@@ -57,8 +62,8 @@ describe('Security Fix: Secure Randomness', () => {
     expect(crypto.randomUUID).toHaveBeenCalled();
 
     // Check if the filename contains the UUID
-    const writeFileSyncMock = vi.mocked(fs.writeFileSync);
-    const lastCall = writeFileSyncMock.mock.calls[0];
+    const writeFileMock = vi.mocked(fs.promises.writeFile);
+    const lastCall = writeFileMock.mock.calls[0];
     const filePath = lastCall[0] as string;
     expect(filePath).toContain('mocked-uuid-1234');
   });
