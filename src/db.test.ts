@@ -4,6 +4,8 @@ import {
   _initTestDatabase,
   createTask,
   deleteTask,
+  getAllTasks,
+  getTasksForGroup,
   getAllChats,
   getMessagesSince,
   getNewMessages,
@@ -375,5 +377,57 @@ describe('task CRUD', () => {
 
     deleteTask('task-3');
     expect(getTaskById('task-3')).toBeUndefined();
+  });
+
+  it('retrieves tasks for a specific group', () => {
+    createTask({
+      id: 'task-a1',
+      group_folder: 'group-a',
+      chat_jid: 'jid-1',
+      prompt: 'prompt A',
+      schedule_type: 'cron',
+      schedule_value: '* * * * *',
+      status: 'active',
+      created_at: '2024-01-01T10:00:00Z',
+      context_mode: 'isolated',
+      next_run: '2024-01-01T10:00:00Z',
+    });
+    createTask({
+      id: 'task-b1',
+      group_folder: 'group-b',
+      chat_jid: 'jid-2',
+      prompt: 'prompt B',
+      schedule_type: 'cron',
+      schedule_value: '* * * * *',
+      status: 'active',
+      created_at: '2024-01-01T11:00:00Z',
+      context_mode: 'isolated',
+      next_run: '2024-01-01T11:00:00Z',
+    });
+    createTask({
+      id: 'task-a2',
+      group_folder: 'group-a',
+      chat_jid: 'jid-1',
+      prompt: 'prompt A2',
+      schedule_type: 'cron',
+      schedule_value: '* * * * *',
+      status: 'active',
+      created_at: '2024-01-01T12:00:00Z',
+      context_mode: 'isolated',
+      next_run: '2024-01-01T12:00:00Z',
+    });
+
+    const tasksA = getTasksForGroup('group-a');
+    expect(tasksA).toHaveLength(2);
+    expect(tasksA.map((t) => t.id)).toContain('task-a1');
+    expect(tasksA.map((t) => t.id)).toContain('task-a2');
+    expect(tasksA.map((t) => t.id)).not.toContain('task-b1');
+
+    const tasksB = getTasksForGroup('group-b');
+    expect(tasksB).toHaveLength(1);
+    expect(tasksB[0].id).toBe('task-b1');
+
+    const allTasks = getAllTasks();
+    expect(allTasks).toHaveLength(3);
   });
 });
